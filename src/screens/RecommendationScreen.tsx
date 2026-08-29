@@ -1,20 +1,52 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { RecommendationService } from '../services';
+import {
+  WorkoutRepository,
+  NutritionRepository,
+  MeasurementRepository,
+  GoalRepository,
+  DailyLogRepository,
+  HydrationRepository,
+  SettingsRepository,
+} from '../database/repositories';
+import type { Recommendation } from '../models';
 
 interface RecommendationScreenProps {
   navigation: any;
 }
 
 export default function RecommendationScreen({ navigation }: RecommendationScreenProps) {
-  const recommendations = [
-    { id: 1, icon: '🏋️', category: 'Workout', message: 'You have a planned workout today. Start it to stay on track.', priority: 'medium' },
-    { id: 2, icon: '💧', category: 'Hydration', message: "You've logged 1.5 L of water today. Your target is 2.5 L. Try to drink more.", priority: 'medium' },
-    { id: 3, icon: '🍽️', category: 'Nutrition', message: 'You haven\'t logged your lunch today. Don\'t forget to track your meals.', priority: 'medium' },
-    { id: 4, icon: '📊', category: 'Progress', message: 'You logged workouts on 3 days this week. Consistency is key to long-term progress.', priority: 'low' },
-    { id: 5, icon: '📏', category: 'Measurements', message: 'It\'s been over two weeks since your last body measurement. Regular tracking helps you see your progress.', priority: 'low' },
-    { id: 6, icon: '🎯', category: 'Goals', message: 'You haven\'t set any goals yet. Goals help you stay focused and motivated. Create your first goal today.', priority: 'medium' },
-  ];
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadRecommendations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const service = new RecommendationService(
+        new WorkoutRepository(),
+        new NutritionRepository(),
+        new MeasurementRepository(),
+        new GoalRepository(),
+        new DailyLogRepository(),
+        new HydrationRepository(),
+        new SettingsRepository()
+      );
+      const recs = await service.generateRecommendations();
+      setRecommendations(recs);
+    } catch (e) {
+      console.error('Failed to load recommendations:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRecommendations();
+    const unsubscribe = navigation.addListener('focus', loadRecommendations);
+    return unsubscribe;
+  }, [navigation, loadRecommendations]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -25,10 +57,19 @@ export default function RecommendationScreen({ navigation }: RecommendationScree
     }
   };
 
-  const renderItem = ({ item }: { item: typeof recommendations[0] }) => (
+  const fallbackIcons: Record<string, string> = {
+    workout: '🏋️',
+    hydration: '💧',
+    nutrition: '🍽️',
+    progress: '📊',
+    measurements: '📏',
+    goals: '🎯',
+  };
+
+  const renderItem = ({ item }: { item: Recommendation }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardIcon}>{item.icon}</Text>
+        <Text style={styles.cardIcon}>{item.icon || fallbackIcons[item.category] || '💡'}</Text>
         <View style={styles.cardInfo}>
           <Text style={styles.cardCategory}>{item.category}</Text>
           <Text style={styles.cardMessage}>{item.message}</Text>
@@ -53,21 +94,23 @@ export default function RecommendationScreen({ navigation }: RecommendationScree
         <Text style={styles.subtitle}>Contextual suggestions based on your data</Text>
       </View>
 
-      <FlatList
-        data={recommendations}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Empty State */}
-      {recommendations.length === 0 && (
-        <View style={styles.emptyState}>
-          <Icon name="check-circle" size={48} color="#10B981" />
-          <Text style={styles.emptyTitle}>All caught up!</Text>
-          <Text style={styles.emptySubtitle}>No suggestions right now. Keep up the good work!</Text>
-        </View>
+      {loading ? (
+        <ActivityIndicator style={styles.loading} size="large" color="#2563EB" />
+      ) : (
+        <FlatList
+          data={recommendations}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => (item.id ?? index).toString()}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Icon name="check-circle" size={48} color="#10B981" />
+              <Text style={styles.emptyTitle}>All caught up!</Text>
+              <Text style={styles.emptySubtitle}>No suggestions right now. Keep up the good work!</Text>
+            </View>
+          }
+        />
       )}
 
       <View style={styles.disclaimer}>
@@ -109,6 +152,9 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
     paddingBottom: 24,
+  },
+  loading: {
+    marginTop: 48,
   },
   card: {
     backgroundColor: '#FFFFFF',

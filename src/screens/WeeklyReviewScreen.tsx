@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { WorkoutRepository, NutritionRepository, HydrationRepository, MeasurementRepository, SettingsRepository } from '../database/repositories';
 
 interface WeeklyReviewScreenProps {
   navigation: any;
@@ -9,29 +10,103 @@ interface WeeklyReviewScreenProps {
 export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenProps) {
   const [weekStart] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - d.getDay() + 1); // Start of current week (Monday)
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    d.setHours(0, 0, 0, 0);
     return d.toISOString().split('T')[0];
   });
 
-  const [weekEnd] = useState(() => {
+  const [weekEnd, setWeekEnd] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [workoutsCompleted, setWorkoutsCompleted] = useState(0);
+  const [nutritionDaysLogged, setNutritionDaysLogged] = useState(0);
+  const [hydrationDaysReached, setHydrationDaysReached] = useState(0);
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
+  const [lastWeekWeight, setLastWeekWeight] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
     const d = new Date();
-    d.setDate(d.getDate() - d.getDay() + 7);
-    return d.toISOString().split('T')[0];
-  });
+    d.setDate(d.getDate() + 6);
+    d.setHours(0, 0, 0, 0);
+    setWeekEnd(d.toISOString().split('T')[0]);
+  }, []);
 
-  // Mock data for weekly review
-  const workoutsCompleted = 3;
+  const loadReview = useCallback(async () => {
+    setLoading(true);
+    try {
+      const workoutRepo = new WorkoutRepository();
+      const nutritionRepo = new NutritionRepository();
+      const hydrationRepo = new HydrationRepository();
+      const measurementRepo = new MeasurementRepository();
+      const settingsRepo = new SettingsRepository();
+
+      const [sessions, logCount, hydrationCount, target] = await Promise.all([
+        workoutRepo.getSessionsByDateRange(weekStart, weekEnd),
+        nutritionRepo.getNutritionLogCount(30),
+        hydrationRepo.getTodaysHydration(weekStart),
+        settingsRepo.getNutritionTargets(),
+      ]);
+
+      setWorkoutsCompleted(sessions.length);
+
+      const dayList: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart + 'T00:00:00');
+        d.setDate(d.getDate() + i);
+        dayList.push(d.toISOString().split('T')[0]);
+      }
+
+      let nutritionDays = 0;
+      let hydrationDays = 0;
+      for (const day of dayList) {
+        const totals = await nutritionRepo.getDailyNutrition(day);
+        if (totals.calories > 0) nutritionDays++;
+        const water = await hydrationRepo.getTodaysHydration(day);
+        if (target.hydration_liters > 0 && water >= target.hydration_liters) hydrationDays++;
+      }
+
+      setNutritionDaysLogged(nutritionDays);
+      setHydrationDaysReached(hydrationDays);
+
+      const latest = await measurementRepo.getLatestMeasurement();
+      const lastWeekStart = new Date(weekStart + 'T00:00:00');
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+      const lastWeekMeasurements = await measurementRepo.getMeasurementsByDateRange(
+        lastWeekStart.toISOString().split('T')[0],
+        new Date(weekStart + 'T00:00:00').toISOString().split('T')[0]
+      );
+
+      if (latest?.weight_kg) setCurrentWeight(latest.weight_kg);
+      if (lastWeekMeasurements.length > 0) {
+        const first = lastWeekMeasurements[lastWeekMeasurements.length - 1];
+        if (first.weight_kg) setLastWeekWeight(first.weight_kg);
+      }
+
+      const sugg: string[] = [];
+      if (workoutsCompleted > 0) sugg.push(`Maintain your current workout frequency — ${workoutsCompleted} workouts this week is great!`);
+      if (nutritionDays > 0) sugg.push(`Continue logging meals consistently. You logged nutrition on ${nutritionDays} out of 7 days.`);
+      if (hydrationDays > 0) sugg.push(`Hydration goal reached on ${hydrationDays} days. Try to hit 7/7 next week.`);
+      if (sugg.length === 0) sugg.push('Start logging workouts, meals, and water this week to see meaningful insights next review.');
+      setSuggestions(sugg);
+
+      void logCount;
+    } catch (e) {
+      console.error('Failed to load weekly review:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [weekStart, weekEnd]);
+
+  useEffect(() => {
+    if (weekEnd) loadReview();
+  }, [loadReview, weekEnd]);
+
   const workoutsPlanned = 3;
-  const nutritionDaysLogged = 6;
-  const hydrationDaysReached = 5;
-  const currentWeight = 112.8;
-  const progressPercentage = 85;
-
-  const suggestions = [
-    'Maintain your current workout frequency — 3 workouts this week is great!',
-    'Continue logging meals consistently. You logged nutrition on 6 out of 7 days.',
-    'Hydration goal reached on 5 days. Try to hit 7/7 next week.',
-  ];
+  const progressPercentage = Math.round((workoutsCompleted / workoutsPlanned) * 100);
+  const weightChange = currentWeight !== null && lastWeekWeight !== null
+    ? currentWeight - lastWeekWeight
+    : null;
 
   return (
     <ScrollView style={styles.container}>
@@ -53,6 +128,10 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
         </Text>
       </View>
 
+      {loading ? (
+        <ActivityIndicator style={styles.loading} size="large" color="#2563EB" />
+      ) : (
+        <>
       <View style={styles.statsGrid}>
         {/* Workouts */}
         <View style={styles.statCard}>
@@ -97,12 +176,16 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
         <View style={[styles.statCard, styles.weightCard]}>
           <Text style={styles.statIcon}>⚖️</Text>
           <Text style={styles.statCategory}>WEIGHT</Text>
-          <Text style={styles.currentWeight}>{currentWeight.toFixed(1)}</Text>
+          <Text style={styles.currentWeight}>{currentWeight !== null ? currentWeight.toFixed(1) : '—'}</Text>
           <Text style={styles.weightUnit}>kg</Text>
-          <Text style={styles.lastWeekText}>Last week: 114.0 kg</Text>
-          <View style={styles.weightChange}>
-            <Text style={styles.weightChangeValue}>-1.2 kg</Text>
-          </View>
+          <Text style={styles.lastWeekText}>Last week: {lastWeekWeight !== null ? `${lastWeekWeight.toFixed(1)} kg` : '—'}</Text>
+          {weightChange !== null && (
+            <View style={[styles.weightChange, { backgroundColor: weightChange <= 0 ? '#D1FAE5' : '#FEE2E2' }]}>
+              <Text style={[styles.weightChangeValue, { color: weightChange <= 0 ? '#059669' : '#DC2626' }]}>
+                {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} kg
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -113,7 +196,7 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
           <Text style={styles.bigPercent}>{progressPercentage}%</Text>
           <Text style={styles.bigLabel}>weekly consistency</Text>
           <View style={styles.bigProgressBar}>
-            <View style={[styles.bigProgressFill, { width: `${progressPercentage}%` }]} />
+            <View style={[styles.bigProgressFill, { width: `${Math.min(100, progressPercentage)}%` }]} />
           </View>
           <Text style={styles.consistencyLabel}>
             You completed {workoutsCompleted} of {workoutsPlanned} planned workouts, logged nutrition {nutritionDaysLogged} days, and reached hydration goals {hydrationDaysReached} days this week.
@@ -139,6 +222,8 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
       </View>
 
       <View style={styles.spacer} />
+      </>
+      )}
     </ScrollView>
   );
 }
@@ -158,6 +243,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  loading: {
+    marginTop: 48,
   },
   periodCard: {
     backgroundColor: '#FFFFFF',

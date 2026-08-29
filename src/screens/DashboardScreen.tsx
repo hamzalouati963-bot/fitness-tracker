@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { WorkoutRepository, NutritionRepository, HydrationRepository, GoalRepository, MeasurementRepository, SettingsRepository } from '../database/repositories';
+import { RecommendationService } from '../services';
 
 interface DashboardScreenProps {
   navigation: any;
@@ -8,60 +10,64 @@ interface DashboardScreenProps {
 
 export default function DashboardScreen({ navigation }: DashboardScreenProps) {
   const [todaysWorkout, setTodaysWorkout] = useState<any>(null);
-  const [goalProgress, setGoalProgress] = useState(0);
+  const [goalProgress, setGoalProgress] = useState<number | null>(null);
   const [hydration, setHydration] = useState({ current: 0, target: 2.5 });
   const [nutrition, setNutrition] = useState({ calories: 0, target: 2200 });
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
-      const profile = await getProfile();
       const workoutRepo = new WorkoutRepository();
+      const hydrationRepo = new HydrationRepository();
+      const nutritionRepo = new NutritionRepository();
+      const goalRepo = new GoalRepository();
+      const measurementRepo = new MeasurementRepository();
+      const settingsRepo = new SettingsRepository();
       const today = new Date().toISOString().split('T')[0];
 
       const session = await workoutRepo.getTodaysSession();
       setTodaysWorkout(session);
 
-      const hydrationRepo = new HydrationRepository();
-      const settingsRepo = new SettingsRepository();
-      const loggedWater = await hydrationRepo.getTodaysHydration(today);
-      const targets = await settingsRepo.getNutritionTargets();
+      const [loggedWater, targets, totals, activeGoals, latestMeasurement] = await Promise.all([
+        hydrationRepo.getTodaysHydration(today),
+        settingsRepo.getNutritionTargets(),
+        nutritionRepo.getDailyNutrition(today),
+        goalRepo.getActiveGoals(),
+        measurementRepo.getLatestMeasurement(),
+      ]);
+
       setHydration({ current: loggedWater, target: targets.hydration_liters });
-
-      const nutritionRepo = new NutritionRepository();
-      const totals = await nutritionRepo.getDailyNutrition(today);
       setNutrition({ calories: Math.round(totals.calories), target: targets.calories_kcal });
+      if (latestMeasurement?.weight_kg) setCurrentWeight(latestMeasurement.weight_kg);
 
-      const goalRepo = new GoalRepository();
-      const activeGoals = await goalRepo.getActiveGoals();
       if (activeGoals.length > 0) {
         const goal = activeGoals[0];
         const progress = await goalRepo.getGoalProgress(goal.id!);
         setGoalProgress(progress);
       }
 
-      // Load suggestions
-      const recs = await generateRecommendations();
+      const recommendationService = new RecommendationService(
+        workoutRepo, nutritionRepo, measurementRepo, goalRepo,
+        new (await import('../database/repositories')).DailyLogRepository(),
+        hydrationRepo, settingsRepo
+      );
+      const recs = await recommendationService.generateRecommendations();
       setSuggestions(recs.slice(0, 3).map(r => r.message));
     } catch (e) {
       console.error('Failed to load dashboard:', e);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDashboardData();
     setRefreshing(false);
-  };
-
-  const formatTime = (time: string) => {
-    const [h, m] = time.split(':');
-    return `${h}:${m}`;
   };
 
   return (
@@ -95,7 +101,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         ) : (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('Programs')}
+            onPress={() => navigation.navigate('More', { screen: 'Programs' })}
           >
             <View style={styles.cardRow}>
               <View>
@@ -126,7 +132,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
 
         <TouchableOpacity
           style={[styles.metricCard, { width: '48%' }]}
-          onPress={() => navigation.navigate('Hydration')}
+          onPress={() => navigation.navigate('More', { screen: 'Hydration' })}
         >
           <Text style={styles.metricEmoji}>💧</Text>
           <Text style={styles.metricValue}>
@@ -144,24 +150,28 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
 
         <TouchableOpacity
           style={styles.goalCard}
-          onPress={() => navigation.navigate('Goals')}
+          onPress={() => navigation.navigate('More', { screen: 'Goals' })}
         >
           <View>
             <Text style={styles.goalTitle}>🎯 Goal Progress</Text>
-            <Text style={styles.goalProgress}>{goalProgress.toFixed(0)}% complete</Text>
+            <Text style={styles.goalProgress}>
+              {goalProgress !== null ? `${goalProgress.toFixed(0)}% complete` : 'No active goals'}
+            </Text>
           </View>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${goalProgress}%` }]} />
+            <View style={[styles.progressFill, { width: `${Math.min(100, goalProgress ?? 0)}%` }]} />
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.goalCard}
-          onPress={() => navigation.navigate('Progress')}
+          onPress={() => navigation.navigate('More', { screen: 'Measurements' })}
         >
           <View>
             <Text style={styles.goalTitle}>📊 Current Weight</Text>
-            <Text style={styles.goalProgress}>116.2 kg</Text>
+            <Text style={styles.goalProgress}>
+              {currentWeight !== null ? `${currentWeight.toFixed(1)} kg` : 'No measurement yet'}
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -259,6 +269,7 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 24,
   },
   metricCard: {
@@ -266,7 +277,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    marginRight: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -342,34 +352,3 @@ const styles = StyleSheet.create({
     height: 20,
   },
 });
-
-// Imported types - stub for now
-function getProfile() { return Promise.resolve({ preferred_workout_days: 'mon_wed_fri' }); }
-function getNutritionTargets() { return Promise.resolve({ hydration_liters: 2.5, calories_kcal: 2200 }); }
-
-class WorkoutRepository {
-  async getTodaysSession() { return Promise.resolve({ id: 1, program_name: 'Full Body A' }); }
-}
-
-class HydrationRepository {
-  async getTodaysHydration(date: string) { return Promise.resolve(1.5); }
-}
-
-class NutritionRepository {
-  async getDailyNutrition(date: string) { return { calories: 1650, protein: 110, carbs: 180, fat: 55 }; }
-}
-
-class GoalRepository {
-  async getActiveGoals() { return Promise.resolve([{ id: 1, name: 'Weight Loss', start_value: 116.2, target_value: 95 }]); }
-  async getGoalProgress(id: number) { return Promise.resolve(32); }
-}
-
-async function generateRecommendations() {
-  return [
-    { message: 'Workout planned today. Start it to stay on track.' },
-    { message: "Hydration at 60% of your daily target." },
-    { message: 'Consider logging your lunch.' },
-  ];
-}
-
-export { DashboardScreen };

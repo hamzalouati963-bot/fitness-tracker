@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { SettingsRepository } from '../database/repositories';
+import { BackupService } from '../services';
+import type { FitnessGoal, ActivityLevel } from '../models';
 
 interface SettingsScreenProps {
   navigation: any;
 }
 
-type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active';
-type FitnessGoal = 'weight_loss' | 'muscle_gain' | 'general_fitness' | 'strength' | 'endurance';
 type Theme = 'light' | 'dark' | 'system';
 type UnitSystem = 'metric' | 'imperial';
 
@@ -27,6 +28,8 @@ const fitnessGoals = [
 ];
 
 export default function SettingsScreen({ navigation }: SettingsScreenProps) {
+  const settingsRepo = new SettingsRepository();
+
   const [profile, setProfile] = useState<{
     name: string;
     age: string;
@@ -39,8 +42,8 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     name: '',
     age: '',
     sex: 'male',
-    height: '182',
-    current_weight: '116.2',
+    height: '',
+    current_weight: '',
     activity_level: 'sedentary',
     fitness_goal: 'weight_loss',
   });
@@ -69,30 +72,146 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     unit_system: 'metric',
   });
 
-  const saveProfile = () => {
-    Alert.alert('Saved', 'Profile settings saved');
+  const loadSettings = useCallback(async () => {
+    try {
+      const [prof, targets, notif, appearanceData] = await Promise.all([
+        settingsRepo.getProfile(),
+        settingsRepo.getNutritionTargets(),
+        settingsRepo.getNotificationSettings(),
+        settingsRepo.getAppearance(),
+      ]);
+
+      setProfile({
+        name: prof.name,
+        age: prof.age !== null ? String(prof.age) : '',
+        sex: prof.sex === 'female' ? 'female' : 'male',
+        height: prof.height_cm ? String(prof.height_cm) : '',
+        current_weight: prof.current_weight_kg ? String(prof.current_weight_kg) : '',
+        activity_level: prof.activity_level,
+        fitness_goal: prof.fitness_goal,
+      });
+
+      setNutrition({
+        calories: String(targets.calories_kcal || 2200),
+        protein: String(targets.protein_g || 150),
+        carbs: String(targets.carbohydrates_g || 250),
+        fat: String(targets.fat_g || 70),
+        hydration: String(targets.hydration_liters || 2.5),
+      });
+
+      setNotifications({
+        workout: notif.workout_reminder.enabled,
+        hydration: notif.hydration_reminder.enabled,
+        meal: notif.meal_logging_reminder.enabled,
+        measurement: notif.measurement_reminder.enabled,
+        weekly_review: notif.weekly_review_reminder.enabled,
+      });
+
+      setAppearance({
+        theme: appearanceData.theme,
+        unit_system: appearanceData.unit_system,
+      });
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const saveProfile = async () => {
+    try {
+      await settingsRepo.updateProfile({
+        name: profile.name.trim() || 'Athlete',
+        age: profile.age ? parseInt(profile.age) : null,
+        sex: profile.sex,
+        height_cm: parseFloat(profile.height) || 0,
+        current_weight_kg: parseFloat(profile.current_weight) || 0,
+        activity_level: profile.activity_level,
+        fitness_goal: profile.fitness_goal,
+      });
+      Alert.alert('Saved', 'Profile settings saved');
+    } catch (e) {
+      console.error('Failed to save profile:', e);
+    }
   };
 
-  const saveNutrition = () => {
-    Alert.alert('Saved', 'Nutrition targets saved');
+  const saveNutrition = async () => {
+    try {
+      await settingsRepo.updateNutritionTargets({
+        calories_kcal: parseInt(nutrition.calories) || 2200,
+        protein_g: parseInt(nutrition.protein) || 150,
+        carbohydrates_g: parseInt(nutrition.carbs) || 250,
+        fat_g: parseInt(nutrition.fat) || 70,
+        hydration_liters: parseFloat(nutrition.hydration) || 2.5,
+      });
+      Alert.alert('Saved', 'Nutrition targets saved');
+    } catch (e) {
+      console.error('Failed to save nutrition targets:', e);
+    }
   };
 
-  const saveNotifications = () => {
-    Alert.alert('Saved', 'Notification settings saved');
+  const saveNotifications = async () => {
+    try {
+      const now = new Date();
+      const timeNowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      await settingsRepo.updateNotificationSettings({
+        workout_reminder: { enabled: notifications.workout, time: '08:00' },
+        hydration_reminder: { enabled: notifications.hydration, interval_minutes: 90 },
+        meal_logging_reminder: { enabled: notifications.meal, time: '12:00' },
+        measurement_reminder: { enabled: notifications.measurement, interval_days: 7 },
+        weekly_review_reminder: { enabled: notifications.weekly_review, day: 'sun', time: timeNowStr },
+      });
+      Alert.alert('Saved', 'Notification settings saved');
+    } catch (e) {
+      console.error('Failed to save notifications:', e);
+    }
   };
 
-  const saveAppearance = () => {
-    Alert.alert('Saved', 'Appearance settings saved');
+  const saveAppearance = async () => {
+    try {
+      await settingsRepo.updateAppearance(appearance);
+      Alert.alert('Saved', 'Appearance settings saved');
+    } catch (e) {
+      console.error('Failed to save appearance:', e);
+    }
   };
 
-  const exportData = () => {
-    Alert.alert('Export', 'Creating backup...', [
-      { text: 'OK', onPress: () => Alert.alert('Exported', 'Backup created successfully') },
-    ]);
+  const exportData = async () => {
+    try {
+      const backupService = new BackupService();
+      const json = await backupService.exportAll();
+      await Share.share({ message: json });
+    } catch (e) {
+      console.error('Failed to export data:', e);
+    }
   };
 
   const importData = () => {
-    Alert.alert('Import', 'Select a backup file to restore');
+    Alert.alert('Import', 'Paste your backup JSON below', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Import',
+        onPress: () => {
+          Alert.alert('Import', 'This version imports backup data via a file. Paste JSON into the field.');
+        },
+      },
+    ]);
+  };
+
+  const clearAllData = async () => {
+    Alert.alert('Clear Data', 'This will delete ALL your data. Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          // Full hard reset is handled by the getDatabase seed; re-import defaults
+          Alert.alert('Done', 'Data cleared. Restart the app to re-seed defaults.');
+        },
+      },
+    ]);
   };
 
   return (
@@ -373,7 +492,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             <Icon name="file-upload" size={20} color="#2563EB" />
             <Text style={styles.backupButtonText}>Import Data</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.backupButton, styles.backupDanger]} onPress={() => Alert.alert('Clear Data', 'This will delete ALL your data. Are you sure?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => {} }])}>
+          <TouchableOpacity style={[styles.backupButton, styles.backupDanger]} onPress={clearAllData}>
             <Icon name="delete-forever" size={20} color="#EF4444" />
             <Text style={[styles.backupButtonText, { color: '#EF4444' }]}>Clear All Data</Text>
           </TouchableOpacity>

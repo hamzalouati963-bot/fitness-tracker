@@ -1,37 +1,70 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { CalculatorService } from '../services';
+import { SettingsRepository } from '../database/repositories';
 
 interface CalculatorsScreenProps {
   navigation: any;
 }
 
 export default function CalculatorsScreen({ navigation }: CalculatorsScreenProps) {
+  const calculatorService = new CalculatorService();
+
   const [bmiInputs, setBmiInputs] = useState({ weight: '', height: '' });
   const [bmrInputs, setBmrInputs] = useState({ sex: 'male', age: '', weight: '', height: '' });
   const [tdeeInputs, setTdeeInputs] = useState({ activityLevel: 'sedentary', customMultiplier: 1.2 });
   const [hydrationInputs, setHydrationInputs] = useState({ weight: 70 });
-  const [workoutEnergyInputs, setWorkoutEnergyInputs] = useState({ activity: 'walking', duration: 30, weight: 116.2 });
+  const [workoutEnergyInputs, setWorkoutEnergyInputs] = useState({ activity: 'walking', duration: 30, weight: 70 });
 
-  const bmi = bmiInputs.weight && bmiInputs.height ? (parseFloat(bmiInputs.weight) / (parseFloat(bmiInputs.height) * parseFloat(bmiInputs.height))) : null;
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const settingsRepo = new SettingsRepository();
+        const profile = await settingsRepo.getProfile();
+        if (profile) {
+          const w = String(profile.current_weight_kg);
+          const h = String(profile.height_cm);
+          setBmiInputs({ weight: w, height: h });
+          setBmrInputs(prev => ({ ...prev, weight: w, height: h, age: profile.age !== null ? String(profile.age) : prev.age }));
+          setHydrationInputs({ weight: profile.current_weight_kg });
+          setWorkoutEnergyInputs(prev => ({ ...prev, weight: profile.current_weight_kg }));
+        }
+      } catch (e) {
+        console.error('Failed to load profile:', e);
+      }
+    };
+    loadProfile();
+  }, []);
 
-  const bmr = bmrInputs.weight && bmrInputs.height && bmrInputs.age ? (
-    bmrInputs.sex === 'male'
-      ? (10 * parseFloat(bmrInputs.weight) + 6.25 * parseFloat(bmrInputs.height) - 5 * parseFloat(bmrInputs.age) + 5)
-      : (10 * parseFloat(bmrInputs.weight) + 6.25 * parseFloat(bmrInputs.height) - 5 * parseFloat(bmrInputs.age) - 161)
-  ) : null;
+  const bmi = bmiInputs.weight && bmiInputs.height
+    ? calculatorService.calculateBMI(parseFloat(bmiInputs.weight), parseFloat(bmiInputs.height))
+    : null;
 
-  const tdee = bmr ? bmr * (tdeeInputs.customMultiplier || 1.2) : null;
+  const bmr = bmrInputs.weight && bmrInputs.height && bmrInputs.age
+    ? calculatorService.calculateBMR(
+        bmrInputs.sex === 'male' ? 'male' : 'female',
+        parseFloat(bmrInputs.weight),
+        parseFloat(bmrInputs.height),
+        parseInt(bmrInputs.age)
+      )
+    : null;
 
-  const hydrationTarget = hydrationInputs.weight ? parseFloat(hydrationInputs.weight) * 0.033 * 1.1 : null;
+  const tdee = bmr
+    ? calculatorService.calculateTDEE(bmr, tdeeInputs.activityLevel)
+    : null;
 
-  const workoutCalories = workoutEnergyInputs.weight && workoutEnergyInputs.duration ? (
-    (workoutEnergyInputs.activity === 'walking' ? 3.5 :
-     workoutEnergyInputs.activity === 'running' ? 7.0 :
-     workoutEnergyInputs.activity === 'cycling' ? 6.0 :
-     workoutEnergyInputs.activity === 'strength_training' ? 4.0 :
-     workoutEnergyInputs.activity === 'hiit' ? 8.0 : 4.0) * 3.5 * parseFloat(workoutEnergyInputs.weight) * parseFloat(workoutEnergyInputs.duration) / (200 * 60)
-  ).toFixed(0) : null;
+  const hydrationTarget = hydrationInputs.weight > 0
+    ? calculatorService.getHydrationTarget(hydrationInputs.weight, tdeeInputs.activityLevel)
+    : null;
+
+  const workoutCalories = workoutEnergyInputs.weight > 0 && workoutEnergyInputs.duration > 0
+    ? Math.round(calculatorService.calculateWorkoutCalories(
+        workoutEnergyInputs.activity,
+        workoutEnergyInputs.duration,
+        workoutEnergyInputs.weight
+      ))
+    : null;
 
   return (
     <ScrollView style={styles.container}>
@@ -56,7 +89,7 @@ export default function CalculatorsScreen({ navigation }: CalculatorsScreenProps
             <TextInput style={styles.input} value={bmiInputs.weight} onChangeText={(t) => setBmiInputs({ ...bmiInputs, weight: t })} keyboardType="decimal-pad" placeholder="0" />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Height (m)</Text>
+            <Text style={styles.inputLabel}>Height (cm)</Text>
             <TextInput style={styles.input} value={bmiInputs.height} onChangeText={(t) => setBmiInputs({ ...bmiInputs, height: t })} keyboardType="decimal-pad" placeholder="0" />
           </View>
         </View>
@@ -199,7 +232,7 @@ export default function CalculatorsScreen({ navigation }: CalculatorsScreenProps
         {workoutCalories !== null && (
           <View style={styles.resultBox}>
             <Text style={styles.resultLabel}>Estimated Calories Burned:</Text>
-            <Text style={styles.resultValue}>{Math.round(parseFloat(workoutCalories))} kcal</Text>
+            <Text style={styles.resultValue}>{workoutCalories} kcal</Text>
             <Text style={styles.resultNote}>This is an estimate based on MET values</Text>
           </View>
         )}

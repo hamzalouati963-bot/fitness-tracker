@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { exercises, type Exercise } from '../services';
 
 interface ExerciseLibraryScreenProps {
   navigation: any;
@@ -16,57 +17,6 @@ const muscleGroups = [
   { id: 'cardio', label: 'Cardio', icon: '🏃' },
   { id: 'full_body', label: 'Full Body', icon: '💥' },
 ];
-
-const exercisesByGroup: Record<string, any[]> = {
-  chest: [
-    { id: 'barbell_bench_press', name: 'Barbell Bench Press', difficulty: 'intermediate', equipment: 'barbell' },
-    { id: 'dumbbell_chest_press', name: 'Dumbbell Chest Press', difficulty: 'beginner', equipment: 'dumbbells' },
-    { id: 'incline_dumbbell_press', name: 'Incline Dumbbell Press', difficulty: 'intermediate', equipment: 'dumbbells' },
-    { id: 'chest_fly', name: 'Chest Fly', difficulty: 'intermediate', equipment: 'dumbbells' },
-    { id: 'cable_chest_fly', name: 'Cable Chest Fly', difficulty: 'intermediate', equipment: 'cables' },
-  ],
-  back: [
-    { id: 'lat_pulldown', name: 'Lat Pulldown', difficulty: 'beginner', equipment: 'machine' },
-    { id: 'seated_row', name: 'Seated Cable Row', difficulty: 'beginner', equipment: 'cables' },
-    { id: 'pull_up', name: 'Pull-Up', difficulty: 'advanced', equipment: 'bodyweight' },
-    { id: 'dumbbell_row', name: 'One-Arm Dumbbell Row', difficulty: 'beginner', equipment: 'dumbbells' },
-  ],
-  shoulders: [
-    { id: 'overhead_press', name: 'Overhead Press', difficulty: 'intermediate', equipment: 'barbell' },
-    { id: 'dumbbell_shoulder_press', name: 'Dumbbell Shoulder Press', difficulty: 'beginner', equipment: 'dumbbells' },
-    { id: 'lateral_raise', name: 'Lateral Raise', difficulty: 'beginner', equipment: 'dumbbells' },
-    { id: 'face_pull', name: 'Face Pull', difficulty: 'beginner', equipment: 'cables' },
-  ],
-  arms: [
-    { id: 'bicep_curl', name: 'Bicep Curl', difficulty: 'beginner', equipment: 'dumbbells' },
-    { id: 'hammer_curl', name: 'Hammer Curl', difficulty: 'beginner', equipment: 'dumbbells' },
-    { id: 'tricep_pushdown', name: 'Tricep Pushdown', difficulty: 'beginner', equipment: 'cables' },
-    { id: 'skull_crusher', name: 'Skull Crusher', difficulty: 'intermediate', equipment: 'barbell' },
-  ],
-  legs: [
-    { id: 'squat', name: 'Barbell Squat', difficulty: 'intermediate', equipment: 'barbell' },
-    { id: 'leg_press', name: 'Leg Press', difficulty: 'beginner', equipment: 'machine' },
-    { id: 'lunges', name: 'Walking Lunges', difficulty: 'intermediate', equipment: 'dumbbells' },
-    { id: 'leg_curl', name: 'Lying Leg Curl', difficulty: 'beginner', equipment: 'machine' },
-    { id: 'leg_extension', name: 'Leg Extension', difficulty: 'beginner', equipment: 'machine' },
-  ],
-  core: [
-    { id: 'plank', name: 'Plank', difficulty: 'beginner', equipment: 'bodyweight' },
-    { id: 'crunch', name: 'Crunch', difficulty: 'beginner', equipment: 'bodyweight' },
-    { id: 'russian_twist', name: 'Russian Twist', difficulty: 'intermediate', equipment: 'bodyweight' },
-    { id: 'leg_raise', name: 'Leg Raise', difficulty: 'intermediate', equipment: 'bodyweight' },
-  ],
-  cardio: [
-    { id: 'treadmill_walk', name: 'Treadmill Walking', difficulty: 'beginner', equipment: 'cardio' },
-    { id: 'treadmill_run', name: 'Treadmill Running', difficulty: 'intermediate', equipment: 'cardio' },
-    { id: 'stationary_bike', name: 'Stationary Bike', difficulty: 'beginner', equipment: 'cardio' },
-    { id: 'elliptical', name: 'Elliptical Trainer', difficulty: 'beginner', equipment: 'cardio' },
-  ],
-  full_body: [
-    { id: 'burpees', name: 'Burpees', difficulty: 'intermediate', equipment: 'bodyweight' },
-    { id: 'kettlebell_swing', name: 'Kettlebell Swing', difficulty: 'intermediate', equipment: 'kettlebell' },
-  ],
-};
 
 const getDifficultyColor = (d: string) => {
   switch (d) {
@@ -91,6 +41,9 @@ const getEquipmentIcon = (e: string) => {
 };
 
 export default function ExerciseLibraryScreen({ navigation }: ExerciseLibraryScreenProps) {
+  const exercisesByGroup = (groupId: string): Exercise[] =>
+    exercises.filter(e => e.muscle_group === groupId);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -106,33 +59,40 @@ export default function ExerciseLibraryScreen({ navigation }: ExerciseLibraryScr
           <View key={group.id} style={styles.groupRow}>
             <Text style={styles.groupIcon}>{group.icon}</Text>
             <Text style={styles.groupLabel}>{group.label}</Text>
-            <Text style={styles.groupCount}>{exercisesByGroup[group.id]?.length || 0}</Text>
+            <Text style={styles.groupCount}>{exercisesByGroup(group.id).length}</Text>
           </View>
         ))}
       </View>
 
-      {muscleGroups.map((group) => (
-        <View key={`exercises-${group.id}`} style={styles.exercisesSection}>
-          <Text style={styles.sectionTitle}>{group.icon} {group.label}</Text>
-          <View style={styles.exercisesList}>
-            {exercisesByGroup[group.id]?.map((exercise) => (
-              <TouchableOpacity key={exercise.id} style={styles.exerciseCard}>
-                <View style={styles.exerciseHeader}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  <View style={styles.exerciseBadges}>
-                    <View style={[styles.badge, { backgroundColor: getDifficultyColor(exercise.difficulty) }]}>
-                      <Text style={styles.badgeText}>{exercise.difficulty}</Text>
+      {muscleGroups.map((group) => {
+        const groupExercises = exercisesByGroup(group.id);
+        if (groupExercises.length === 0) return null;
+        return (
+          <View key={`exercises-${group.id}`} style={styles.exercisesSection}>
+            <Text style={styles.sectionTitle}>{group.icon} {group.label}</Text>
+            <View style={styles.exercisesList}>
+              {groupExercises.map((exercise) => (
+                <View key={exercise.id} style={styles.exerciseCard}>
+                  <View style={styles.exerciseHeader}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <View style={styles.exerciseBadges}>
+                      <View style={[styles.badge, { backgroundColor: getDifficultyColor(exercise.difficulty) }]}>
+                        <Text style={styles.badgeText}>{exercise.difficulty}</Text>
+                      </View>
                     </View>
                   </View>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={styles.exerciseEquipment}>{getEquipmentIcon(exercise.equipment)} {exercise.equipment}</Text>
+                    {exercise.instructions?.length > 0 && (
+                      <Text style={styles.exerciseRest}>{exercise.default_rest_seconds}s rest</Text>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseEquipment}>{getEquipmentIcon(exercise.equipment)} {exercise.equipment}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
 
       <View style={styles.spacer} />
     </ScrollView>
@@ -244,14 +204,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 6,
+    gap: 12,
   },
   exerciseEquipment: {
     fontSize: 12,
     color: '#6B7280',
   },
+  exerciseRest: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
   spacer: {
     height: 20,
   },
 });
-
-export { ExerciseLibraryScreen };

@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { createBottomTabNavigator, TabBarIconProps } from '@react-navigation/bottom-tabs';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 
 import DashboardScreen from './screens/DashboardScreen';
@@ -8,15 +8,48 @@ import WorkoutScreen from './screens/WorkoutScreen';
 import NutritionScreen from './screens/NutritionScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import MoreStack from './MoreStack';
+import { getDatabase } from './database';
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        await getDatabase();
+        setReady(true);
+      } catch (e) {
+        console.error('DB init failed', e);
+        setError('Database initialization failed');
+      }
+    })();
+  }, []);
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#2563EB" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }: { route: { name: string } }) => ({
-          tabBarIcon: ({ color, size }: TabBarIconProps) => {
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => {
             let icon: React.ReactNode;
 
             if (route.name === 'Home') {
@@ -58,3 +91,21 @@ export default function App() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+  },
+});

@@ -1,41 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { HydrationRepository, SettingsRepository } from '../database/repositories';
+import { todayISO, timeNow } from '../services';
 
 interface HydrationScreenProps {
   navigation: any;
 }
 
 export default function HydrationScreen({ navigation }: HydrationScreenProps) {
-  const [currentLiters, setCurrentLiters] = useState(1.5);
+  const [currentLiters, setCurrentLiters] = useState(0);
   const [targetLiters, setTargetLiters] = useState(2.5);
   const [entries, setEntries] = useState<{ time: string; amount: number; id: number }[]>([]);
+  const [customAmount, setCustomAmount] = useState('');
 
-  useEffect(() => {
-    // Load existing entries for today
-    setEntries([
-      { time: '08:30', amount: 0.5, id: 1 },
-      { time: '10:15', amount: 0.5, id: 2 },
-      { time: '12:00', amount: 0.25, id: 3 },
-      { time: '14:30', amount: 0.25, id: 4 },
-    ]);
+  const loadData = useCallback(async () => {
+    try {
+      const hydrationRepo = new HydrationRepository();
+      const settingsRepo = new SettingsRepository();
+      const today = todayISO();
+      const [total, todayEntries, targets] = await Promise.all([
+        hydrationRepo.getTodaysHydration(today),
+        hydrationRepo.getEntriesByDate(today),
+        settingsRepo.getNutritionTargets(),
+      ]);
+      setCurrentLiters(total);
+      setTargetLiters(targets.hydration_liters || 2.5);
+      setEntries(todayEntries.map(e => ({ time: e.time, amount: e.amount_liters, id: e.id! })));
+    } catch (e) {
+      console.error('Failed to load hydration:', e);
+    }
   }, []);
 
-  const addWater = (amount: number) => {
-    const entry = {
-      time: new Date().toTimeString().slice(0, 5),
-      amount: amount / 1000,
-      id: Date.now(),
-    };
-    setEntries([...entries, entry]);
-    setCurrentLiters(currentLiters + entry.amount);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const addWater = async (amount: number) => {
+    try {
+      const hydrationRepo = new HydrationRepository();
+      await hydrationRepo.addEntry({
+        date: todayISO(),
+        time: timeNow(),
+        amount_liters: amount / 1000,
+        source: 'manual',
+      });
+      await loadData();
+    } catch (e) {
+      console.error('Failed to add water:', e);
+    }
   };
 
-  const removeEntry = (id: number) => {
-    const entry = entries.find(e => e.id === id);
-    if (entry) {
-      setEntries(entries.filter(e => e.id !== id));
-      setCurrentLiters(Math.max(0, currentLiters - entry.amount));
+  const removeEntry = async (id: number) => {
+    try {
+      const hydrationRepo = new HydrationRepository();
+      await hydrationRepo.deleteEntry(id);
+      await loadData();
+    } catch (e) {
+      console.error('Failed to remove entry:', e);
+    }
+  };
+
+  const addCustom = () => {
+    const ml = parseFloat(customAmount);
+    if (ml && ml > 0 && ml <= 2000) {
+      addWater(ml);
+      setCustomAmount('');
     }
   };
 
@@ -51,7 +81,6 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Water Progress */}
       <View style={styles.progressCard}>
         <View style={styles.waterIconContainer}>
           <Text style={styles.waterIcon}>💧</Text>
@@ -60,16 +89,13 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
         <Text style={styles.bigNumber}>{currentLiters.toFixed(1)}</Text>
         <Text style={styles.bigUnit}>/ {targetLiters.toFixed(1)} L</Text>
 
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
-          </View>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
 
         <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
       </View>
 
-      {/* Quick Add Buttons */}
       <View style={styles.quickAddSection}>
         <Text style={styles.sectionTitle}>QUICK ADD</Text>
         <View style={styles.quickButtons}>
@@ -90,14 +116,13 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
         </View>
       </View>
 
-      {/* Custom Amount */}
       <View style={styles.customSection}>
         <Text style={styles.sectionTitle}>CUSTOM AMOUNT</Text>
         <View style={styles.customInputRow}>
           <TextInput
             style={styles.customInput}
             value={customAmount}
-            onChangeText={(text) => setCustomAmount(text)}
+            onChangeText={setCustomAmount}
             keyboardType="decimal-pad"
             placeholder="0"
           />
@@ -108,7 +133,6 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
         </View>
       </View>
 
-      {/* Today's Log */}
       <View style={styles.logSection}>
         <Text style={styles.sectionTitle}>TODAY'S LOG</Text>
         {entries.length === 0 ? (
@@ -190,7 +214,7 @@ const styles = StyleSheet.create({
     marginTop: -4,
     marginBottom: 16,
   },
-  progressBarContainer: {
+  progressBar: {
     width: '100%',
     height: 12,
     backgroundColor: '#E5E7EB',
@@ -198,13 +222,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 8,
   },
-  progressBar: {
-    height: '100%',
-    borderRadius: 6,
-  },
   progressFill: {
     height: '100%',
-    backgroundColor: 'linear-gradient(to right, #3B82F6, #06B6D4)',
+    backgroundColor: '#3B82F6',
     borderRadius: 6,
   },
   progressPercent: {
@@ -342,14 +362,3 @@ const styles = StyleSheet.create({
     height: 20,
   },
 });
-
-const [customAmount, setCustomAmount] = React.useState('');
-const addCustom = () => {
-  const ml = parseFloat(customAmount);
-  if (ml && ml > 0 && ml <= 2000) {
-    addWater(ml);
-    setCustomAmount('');
-  }
-};
-
-export { HydrationScreen };

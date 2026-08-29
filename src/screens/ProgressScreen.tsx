@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { WorkoutRepository, NutritionRepository, MeasurementRepository, DailyLogRepository } from '../database/repositories';
+import { ProgressService, dateDaysAgo } from '../services';
 
 interface ProgressScreenProps {
   navigation: any;
@@ -8,35 +10,66 @@ interface ProgressScreenProps {
 
 export default function ProgressScreen({ navigation }: ProgressScreenProps) {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
-  const [weightData] = useState<{ date: string; weight: number }[]>([
-    { date: '2026-07-01', weight: 119.6 },
-    { date: '2026-08-07', weight: 119.6 },
-    { date: '2026-08-19', weight: 116.2 },
-    { date: '2026-09-01', weight: 114 },
-    { date: '2026-09-15', weight: 112.8 },
-    { date: '2026-10-01', weight: 111.5 },
-  ]);
+  const [weightData, setWeightData] = useState<{ date: string; weight: number }[]>([]);
+  const [bodyFatData, setBodyFatData] = useState<{ date: string; bodyFat: number }[]>([]);
+  const [muscleMassData, setMuscleMassData] = useState<{ date: string; muscleMass: number }[]>([]);
+  const [workoutsPerWeek, setWorkoutsPerWeek] = useState<{ week: string; count: number }[]>([]);
+  const [avgCalories, setAvgCalories] = useState(0);
+  const [avgMacros, setAvgMacros] = useState({ protein: 0, carbs: 0, fat: 0 });
 
-  const [bodyFatData] = useState<{ date: string; bodyFat: number }[]>([
-    { date: '2026-07-01', bodyFat: 31.9 },
-    { date: '2026-08-07', bodyFat: 31.9 },
-    { date: '2026-08-19', bodyFat: 31.1 },
-    { date: '2026-10-01', bodyFat: 30 },
-  ]);
+  const loadData = useCallback(async () => {
+    try {
+      const progressService = new ProgressService(
+        new WorkoutRepository(),
+        new NutritionRepository(),
+        new MeasurementRepository(),
+        new DailyLogRepository()
+      );
 
-  const [muscleMassData] = useState<{ date: string; muscleMass: number }[]>([
-    { date: '2026-07-01', muscleMass: 77.4 },
-    { date: '2026-08-07', muscleMass: 77.4 },
-    { date: '2026-08-19', muscleMass: 76.2 },
-    { date: '2026-10-01', muscleMass: 77 },
-  ]);
+      const days = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : selectedPeriod === '3m' ? 90 : selectedPeriod === '6m' ? 180 : selectedPeriod === '1y' ? 365 : 3650;
 
-  const [workoutsPerWeek] = useState<{ week: string; count: number }[]>([
-    { week: 'Week 1', count: 2 },
-    { week: 'Week 2', count: 3 },
-    { week: 'Week 3', count: 3 },
-    { week: 'Week 4', count: 4 },
-  ]);
+      const [weights, bodyFat, muscle, weeks, avgCal] = await Promise.all([
+        progressService.getWeightHistory(days),
+        progressService.getBodyFatHistory(days),
+        progressService.getMuscleMassHistory(days),
+        progressService.getWorkoutsPerWeek(4),
+        progressService.getAverageCalories(30),
+      ]);
+
+      setWeightData(weights.filter(w => w.weight !== null).map(w => ({ date: w.date, weight: w.weight! })));
+      setBodyFatData(bodyFat.filter(b => b.bodyFat !== null).map(b => ({ date: b.date, bodyFat: b.bodyFat! })));
+      setMuscleMassData(muscle.filter(m => m.muscleMass !== null).map(m => ({ date: m.date, muscleMass: m.muscleMass! })));
+      setWorkoutsPerWeek(weeks.map((w, i) => ({ week: `Week ${i + 1}`, count: w.count })));
+      setAvgCalories(Math.round(avgCal));
+
+      const nutritionRepo = new NutritionRepository();
+      let p = 0, c = 0, f = 0, count = 0;
+      for (let i = 0; i < 7; i++) {
+        const totals = await nutritionRepo.getDailyNutrition(dateDaysAgo(i));
+        if (totals.calories > 0) {
+          p += totals.protein;
+          c += totals.carbs;
+          f += totals.fat;
+          count++;
+        }
+      }
+      if (count > 0) {
+        setAvgMacros({
+          protein: Math.round(p / count),
+          carbs: Math.round(c / count),
+          fat: Math.round(f / count),
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load progress:', e);
+    }
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    loadData();
+    const unsubscribe = navigation.addListener('focus', loadData);
+    return unsubscribe;
+  }, [navigation, loadData]);
 
   const formatWeight = (w: number) => `${w.toFixed(1)} kg`;
   const formatBodyFat = (bf: number) => `${bf.toFixed(1)}%`;
@@ -69,22 +102,30 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
         <Text style={styles.chartTitle}>⚖️ Weight Over Time</Text>
         <View style={styles.chartContainer}>
           <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartValue}>{weightData[weightData.length - 1]?.weight.toFixed(1)} kg</Text>
-            <Text style={styles.chartChange}>
-              From {weightData[0]?.weight.toFixed(1)} → {weightData[weightData.length - 1]?.weight.toFixed(1)} kg
-            </Text>
-            <Text style={[styles.chartBadge, { backgroundColor: weightData[weightData.length - 1]?.weight < weightData[0]?.weight ? '#D1FAE5' : '#FEE2E2' }]}>
-              {weightData[weightData.length - 1]?.weight < weightData[0]?.weight ? '↓ Losing' : '↑ Gaining'}
-            </Text>
+            {weightData.length > 0 ? (
+              <>
+                <Text style={styles.chartValue}>{weightData[weightData.length - 1].weight.toFixed(1)} kg</Text>
+                <Text style={styles.chartChange}>
+                  From {weightData[0].weight.toFixed(1)} → {weightData[weightData.length - 1].weight.toFixed(1)} kg
+                </Text>
+                <Text style={[styles.chartBadge, { backgroundColor: weightData[weightData.length - 1].weight < weightData[0].weight ? '#D1FAE5' : '#FEE2E2' }]}>
+                  {weightData[weightData.length - 1].weight < weightData[0].weight ? '↓ Losing' : '↑ Gaining'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.noDataText}>Log your weight in Measurements to see trends</Text>
+            )}
           </View>
         </View>
-        <View style={styles.chartPoints}>
-          {weightData.map((d, i) => (
-            <View key={i} style={styles.chartPoint}>
-              <View style={[styles.chartDot, { backgroundColor: i === weightData.length - 1 ? '#2563EB' : '#93C5FD' }]} />
-            </View>
-          ))}
-        </View>
+        {weightData.length > 0 && (
+          <View style={styles.chartPoints}>
+            {weightData.map((d, i) => (
+              <View key={i} style={styles.chartPoint}>
+                <View style={[styles.chartDot, { backgroundColor: i === weightData.length - 1 ? '#2563EB' : '#93C5FD' }]} />
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Body Fat Chart */}
@@ -92,13 +133,19 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
         <Text style={styles.chartTitle}>📊 Body Fat Over Time</Text>
         <View style={styles.chartContainer}>
           <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartValue}>{bodyFatData[bodyFatData.length - 1]?.bodyFat.toFixed(1)}%</Text>
-            <Text style={styles.chartChange}>
-              From {bodyFatData[0]?.bodyFat.toFixed(1)}% → {bodyFatData[bodyFatData.length - 1]?.bodyFat.toFixed(1)}%
-            </Text>
-            <Text style={[styles.chartBadge, { backgroundColor: bodyFatData[bodyFatData.length - 1]?.bodyFat < bodyFatData[0]?.bodyFat ? '#D1FAE5' : '#FEE2E2' }]}>
-              {bodyFatData[bodyFatData.length - 1]?.bodyFat < bodyFatData[0]?.bodyFat ? '↓ Improving' : '↑ Increasing'}
-            </Text>
+            {bodyFatData.length > 0 ? (
+              <>
+                <Text style={styles.chartValue}>{bodyFatData[bodyFatData.length - 1].bodyFat.toFixed(1)}%</Text>
+                <Text style={styles.chartChange}>
+                  From {bodyFatData[0].bodyFat.toFixed(1)}% → {bodyFatData[bodyFatData.length - 1].bodyFat.toFixed(1)}%
+                </Text>
+                <Text style={[styles.chartBadge, { backgroundColor: bodyFatData[bodyFatData.length - 1].bodyFat < bodyFatData[0].bodyFat ? '#D1FAE5' : '#FEE2E2' }]}>
+                  {bodyFatData[bodyFatData.length - 1].bodyFat < bodyFatData[0].bodyFat ? '↓ Improving' : '↑ Increasing'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.noDataText}>No body fat data yet</Text>
+            )}
           </View>
         </View>
       </View>
@@ -108,13 +155,19 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
         <Text style={styles.chartTitle}>💪 Muscle Mass Over Time</Text>
         <View style={styles.chartContainer}>
           <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartValue}>{muscleMassData[muscleMassData.length - 1]?.muscleMass.toFixed(1)} kg</Text>
-            <Text style={styles.chartChange}>
-              From {muscleMassData[0]?.muscleMass.toFixed(1)} → {muscleMassData[muscleMassData.length - 1]?.muscleMass.toFixed(1)} kg
-            </Text>
-            <Text style={[styles.chartBadge, { backgroundColor: muscleMassData[muscleMassData.length - 1]?.muscleMass > muscleMassData[0]?.muscleMass ? '#D1FAE5' : '#FEE2E2' }]}>
-              {muscleMassData[muscleMassData.length - 1]?.muscleMass > muscleMassData[0]?.muscleMass ? '↑ Gaining' : '↓ Losing'}
-            </Text>
+            {muscleMassData.length > 0 ? (
+              <>
+                <Text style={styles.chartValue}>{muscleMassData[muscleMassData.length - 1].muscleMass.toFixed(1)} kg</Text>
+                <Text style={styles.chartChange}>
+                  From {muscleMassData[0].muscleMass.toFixed(1)} → {muscleMassData[muscleMassData.length - 1].muscleMass.toFixed(1)} kg
+                </Text>
+                <Text style={[styles.chartBadge, { backgroundColor: muscleMassData[muscleMassData.length - 1].muscleMass > muscleMassData[0].muscleMass ? '#D1FAE5' : '#FEE2E2' }]}>
+                  {muscleMassData[muscleMassData.length - 1].muscleMass > muscleMassData[0].muscleMass ? '↑ Gaining' : '↓ Losing'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.noDataText}>No muscle mass data yet</Text>
+            )}
           </View>
         </View>
       </View>
@@ -139,23 +192,23 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>🍽️ Average Daily Calories</Text>
         <View style={styles.avgCaloriesContainer}>
-          <Text style={styles.avgCaloriesValue}>1,688</Text>
+          <Text style={styles.avgCaloriesValue}>{avgCalories > 0 ? avgCalories.toLocaleString() : '—'}</Text>
           <Text style={styles.avgCaloriesUnit}>kcal / day (30-day average)</Text>
           <View style={styles.avgCaloriesBreakdown}>
             <View style={styles.avgCaloriesRow}>
               <Text style={styles.macroLabel}>Protein</Text>
-              <Text style={styles.macroValue}>135g</Text>
-              <Text style={styles.macroCals}>540 kcal</Text>
+              <Text style={styles.macroValue}>{avgMacros.protein > 0 ? `${avgMacros.protein}g` : '—'}</Text>
+              <Text style={styles.macroCals}>{avgMacros.protein > 0 ? `${avgMacros.protein * 4} kcal` : ''}</Text>
             </View>
             <View style={styles.avgCaloriesRow}>
               <Text style={styles.macroLabel}>Carbs</Text>
-              <Text style={styles.macroValue}>156g</Text>
-              <Text style={styles.macroCals}>624 kcal</Text>
+              <Text style={styles.macroValue}>{avgMacros.carbs > 0 ? `${avgMacros.carbs}g` : '—'}</Text>
+              <Text style={styles.macroCals}>{avgMacros.carbs > 0 ? `${avgMacros.carbs * 4} kcal` : ''}</Text>
             </View>
             <View style={styles.avgCaloriesRow}>
               <Text style={styles.macroLabel}>Fat</Text>
-              <Text style={styles.macroValue}>59g</Text>
-              <Text style={styles.macroCals}>531 kcal</Text>
+              <Text style={styles.macroValue}>{avgMacros.fat > 0 ? `${avgMacros.fat}g` : '—'}</Text>
+              <Text style={styles.macroCals}>{avgMacros.fat > 0 ? `${avgMacros.fat * 9} kcal` : ''}</Text>
             </View>
           </View>
         </View>
@@ -245,6 +298,11 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
   chartChange: {
     fontSize: 12,

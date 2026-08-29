@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { WorkoutRepository } from '../database/repositories';
+import type { WorkoutExercise, WorkoutSet } from '../models';
+import { timeNow } from '../services';
 
 interface WorkoutScreenProps {
   navigation: any;
@@ -8,25 +11,83 @@ interface WorkoutScreenProps {
 }
 
 export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps) {
-  const sessionId = route.params?.sessionId;
+  const sessionId = route.params?.sessionId as number | undefined;
+
+  const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>([]);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [sets, setSets] = useState<any[]>([]);
+  const [sets, setSets] = useState<WorkoutSet[]>([]);
   const [currentSet, setCurrentSet] = useState({ weight: '', reps: '' });
   const [restTimer, setRestTimer] = useState<number | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [loading, setLoading] = useState(!!sessionId);
 
-  const exercises = [
-    { id: 'bench_press', name: 'Barbell Bench Press', muscle: 'Chest' },
-    { id: 'lat_pulldown', name: 'Lat Pulldown', muscle: 'Back' },
-    { id: 'overhead_press', name: 'Overhead Press', muscle: 'Shoulders' },
-    { id: 'squat', name: 'Barbell Squat', muscle: 'Legs' },
-  ];
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const workoutRepo = new WorkoutRepository();
+
+  const loadSession = useCallback(async () => {
+    if (!sessionId) return;
+    setLoading(true);
+    try {
+      const exercises = await workoutRepo.getExercisesBySession(sessionId);
+      setWorkoutExercises(exercises);
+      setCurrentExerciseIndex(0);
+      if (exercises.length > 0) {
+        const exerciseSets = await workoutRepo.getSetsByExercise(exercises[0].id!);
+        setSets(exerciseSets);
+      } else {
+        setSets([]);
+      }
+    } catch (e) {
+      console.error('Failed to load workout:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    loadSession();
+  }, [loadSession]);
+
+  useEffect(() => {
+    if (restTimer === null) return;
+    timerRef.current = setInterval(() => {
+      setTimerSeconds(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setRestTimer(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [restTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   const startWorkout = () => {
-    navigation.navigate('Programs');
+    navigation.navigate('More', { screen: 'Programs' });
   };
 
-  const addSet = () => {
+  const changeExercise = async (newIndex: number) => {
+    setCurrentExerciseIndex(newIndex);
+    const next = workoutExercises[newIndex];
+    if (next) {
+      const exerciseSets = await workoutRepo.getSetsByExercise(next.id!);
+      setSets(exerciseSets);
+    } else {
+      setSets([]);
+    }
+  };
+
+  const addSet = async () => {
     if (!currentSet.weight || !currentSet.reps) {
       Alert.alert('Invalid Input', 'Please enter weight and reps');
       return;
@@ -40,23 +101,52 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
       return;
     }
 
-    const newSet = {
-      id: Date.now(),
-      set_number: sets.length + 1,
-      weight_kg: weight,
-      reps,
-      completed: true,
-      rpe: null,
-    };
+    const exercise = workoutExercises[currentExerciseIndex];
+    if (!exercise?.id) {
+      Alert.alert('No Active Workout', 'Start a workout from the Programs screen first.');
+      return;
+    }
 
-    setSets([...sets, newSet]);
-    setCurrentSet({ weight: '', reps: '' });
+    try {
+      await workoutRepo.createSet({
+        exercise_id: exercise.id!,
+        set_number: sets.length + 1,
+        weight_kg: weight,
+        reps,
+        completed: true,
+      });
+      const updatedSets = await workoutRepo.getSetsByExercise(exercise.id!);
+      setSets(updatedSets);
+      setCurrentSet({ weight: '', reps: '' });
+    } catch (e) {
+      console.error('Failed to add set:', e);
+    }
+  };
+
+  const finishWorkout = async () => {
+    if (!sessionId) return;
+    try {
+      const endTime = timeNow();
+      await workoutRepo.updateSession(sessionId, { end_time: endTime });
+      Alert.alert('Workout Complete', 'Great job! Your workout has been saved.', [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('Home'),
+        },
+      ]);
+    } catch (e) {
+      console.error('Failed to finish workout:', e);
+    }
   };
 
   const completeExercise = () => {
-    Alert.alert('Exercise Complete', `Completed ${sets.length} sets`, [
-      { text: 'Next Exercise', onPress: () => {} },
-      { text: 'Finish Workout', onPress: () => {} },
+    const isLast = currentExerciseIndex >= workoutExercises.length - 1;
+    const message = isLast
+      ? `Completed ${sets.length} sets. This was the last exercise.`
+      : `Completed ${sets.length} sets for ${workoutExercises[currentExerciseIndex]?.exercise_name}.`;
+    Alert.alert('Exercise Complete', message, [
+      ...(isLast ? [] : [{ text: 'Next Exercise', onPress: () => changeExercise(currentExerciseIndex + 1) }]),
+      { text: isLast ? 'Finish Workout' : 'Finish Workout', onPress: finishWorkout },
     ]);
   };
 
@@ -66,6 +156,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
   };
 
   const cancelRestTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     setRestTimer(null);
     setTimerSeconds(0);
   };
@@ -76,62 +167,85 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const currentExercise = exercises[currentExerciseIndex];
+  const currentExercise = workoutExercises[currentExerciseIndex];
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.centerText}>Loading workout...</Text>
+      </View>
+    );
+  }
+
+  if (!currentExercise) {
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="close" size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Workout</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🏋️</Text>
+          <Text style={styles.emptyTitle}>No Active Workout</Text>
+          <Text style={styles.emptySubtitle}>Pick a program to start a session and track your sets.</Text>
+          <TouchableOpacity style={styles.startButton} onPress={startWorkout}>
+            <Text style={styles.startButtonText}>Choose a Program</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.spacer} />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
           <Icon name="close" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Workout</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${((currentExerciseIndex + 1) / exercises.length) * 100}%` }]} />
+      <View style={styles.exerciseNav}>
+        {workoutExercises.map((ex, i) => (
+          <TouchableOpacity
+            key={ex.id}
+            style={[styles.exercisePill, i === currentExerciseIndex && styles.exercisePillActive]}
+            onPress={() => changeExercise(i)}
+          >
+            <Text style={[styles.exercisePillText, i === currentExerciseIndex && styles.exercisePillTextActive]}>
+              {i + 1}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.exerciseHeader}>
-        <Text style={styles.exerciseName}>{currentExercise.name}</Text>
-        <Text style={styles.exerciseMuscle}>{currentExercise.muscle}</Text>
+        <Text style={styles.exerciseName}>{currentExercise.exercise_name}</Text>
+        <Text style={styles.exerciseMuscle}>{currentExerciseIndex + 1} of {workoutExercises.length} exercises</Text>
       </View>
 
       {sets.length > 0 && (
-        <View style={styles.lastSetsCard}>
-          <Text style={styles.lastSetsTitle}>Last Sets</Text>
-          {sets.slice(-3).map((set, i) => (
-            <View key={set.id} style={styles.setRow}>
-              <Text style={styles.setNumber}>Set {set.set_number}</Text>
-              <Text style={styles.setDetails}>
-                {set.weight_kg} kg × {set.reps}
-              </Text>
+        <View style={styles.setsSection}>
+          <Text style={styles.sectionTitle}>LOGGED SETS</Text>
+          {sets.map((set) => (
+            <View key={set.id} style={styles.setCard}>
+              <View style={styles.setHeader}>
+                <Text style={styles.setLabel}>Set {set.set_number}</Text>
+                <Text style={styles.setSuccess}>✓</Text>
+              </View>
+              <View style={styles.setDetails}>
+                <Text style={styles.setMetric}>{set.weight_kg} kg</Text>
+                <Text style={styles.setMetric}>{set.reps} reps</Text>
+              </View>
             </View>
           ))}
         </View>
       )}
-
-      <View style={styles.setsSection}>
-        <Text style={styles.sectionTitle}>SETS</Text>
-
-        {sets.map((set) => (
-          <View key={set.id} style={styles.setCard}>
-            <View style={styles.setHeader}>
-              <Text style={styles.setLabel}>Set {set.set_number}</Text>
-              <Text style={styles.setSuccess}>✓</Text>
-            </View>
-            <View style={styles.setDetails}>
-              <Text style={styles.setMetric}>{set.weight_kg} kg</Text>
-              <Text style={styles.setMetric}>{set.reps} reps</Text>
-            </View>
-          </View>
-        ))}
-
-        <TouchableOpacity style={styles.addSetButton} onPress={addSet}>
-          <Icon name="add" size={20} color="#2563EB" />
-          <Text style={styles.addSetText}>Add Set</Text>
-        </TouchableOpacity>
-      </View>
 
       <View style={styles.currentSetSection}>
         <Text style={styles.sectionTitle}>CURRENT SET</Text>
@@ -204,6 +318,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  centerText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -216,14 +340,65 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 16,
+  emptyState: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    margin: 16,
+    marginTop: 48,
+    padding: 32,
+    alignItems: 'center',
   },
-  progressFill: {
-    height: '100%',
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  startButton: {
     backgroundColor: '#2563EB',
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  exerciseNav: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 8,
+  },
+  exercisePill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exercisePillActive: {
+    backgroundColor: '#2563EB',
+  },
+  exercisePillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  exercisePillTextActive: {
+    color: '#FFFFFF',
   },
   exerciseHeader: {
     padding: 16,
@@ -246,33 +421,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
-  },
-  lastSetsCard: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  lastSetsTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    marginBottom: 8,
-  },
-  setRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  setNumber: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  setDetails: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
   },
   setsSection: {
     marginTop: 8,
@@ -318,20 +466,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1F2937',
-  },
-  addSetButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-  },
-  addSetText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '600',
   },
   currentSetSection: {
     marginTop: 16,
@@ -440,5 +574,3 @@ const styles = StyleSheet.create({
     height: 20,
   },
 });
-
-export { WorkoutScreen };

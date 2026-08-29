@@ -1,9 +1,26 @@
-import { WorkoutRepository, NutritionRepository, MeasurementRepository, GoalRepository, DailyLogRepository, HydrationRepository, SettingsRepository } from '../database/repositories';
-import type { WorkoutSession, WorkoutSet, Meal, Goal, DailyLog, HydrationEntry, Profile, NutritionTargets } from '../models';
-import { exercises } from '../data/exercises.json';
-import { workoutPrograms } from '../data/workout_programs.json';
-import { foods } from '../data/foods.json';
-import { recommendationRules } from '../data/recommendation_rules.json';
+import {
+  WorkoutRepository,
+  NutritionRepository,
+  MeasurementRepository,
+  GoalRepository,
+  DailyLogRepository,
+  HydrationRepository,
+  SettingsRepository,
+} from '../database/repositories';
+import type { Recommendation } from '../models';
+import exercisesData from '../data/exercises.json';
+import workoutProgramsData from '../data/workout_programs.json';
+import foodsData from '../data/foods.json';
+import recommendationRulesData from '../data/recommendation_rules.json';
+
+export const exercises = exercisesData;
+export const workoutPrograms = workoutProgramsData;
+export const foods = foodsData;
+export const recommendationRules = recommendationRulesData.recommendation_rules;
+
+export type Food = (typeof foodsData)[number];
+export type Exercise = (typeof exercisesData)[number];
+export type WorkoutProgram = (typeof workoutProgramsData)[number];
 
 export class CalculatorService {
   calculateBMI(weightKg: number, heightCm: number): number {
@@ -26,7 +43,7 @@ export class CalculatorService {
       'sedentary': 1.2,
       'lightly_active': 1.375,
       'moderately_active': 1.55,
-      'very_active': 1.725
+      'very_active': 1.725,
     };
     return bmr * (multipliers[activityLevel] || 1.2);
   }
@@ -43,7 +60,7 @@ export class CalculatorService {
       'strength_training': 4.0,
       'hiit': 8.0,
       'swimming': 6.0,
-      'yoga': 2.5
+      'yoga': 2.5,
     };
     const met = metValues[activityType] || 4.0;
     return Math.round((met * 3.5 * weightKg * durationMinutes) / (200 * 60));
@@ -55,7 +72,7 @@ export class CalculatorService {
       'sedentary': 1.0,
       'lightly_active': 1.1,
       'moderately_active': 1.2,
-      'very_active': 1.3
+      'very_active': 1.3,
     };
     const multiplier = multipliers[activityLevel] || 1.0;
     return Math.round((baseLiters * multiplier) * 10) / 10;
@@ -70,25 +87,23 @@ export class ProgressService {
     private dailyLogRepo: DailyLogRepository
   ) {}
 
-  getWeightHistory(days: number): { date: string; weight: number | null }[] {
+  async getWeightHistory(days: number): Promise<{ date: string; weight: number | null }[]> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    // Get measurements
-    const measurements = this.measurementRepo.getMeasurementsByDateRange(
+    const measurements = await this.measurementRepo.getMeasurementsByDateRange(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
 
     const weightData: { date: string; weight: number | null }[] = measurements.map(m => ({
       date: m.date,
-      weight: m.weight_kg
+      weight: m.weight_kg,
     }));
 
-    // Also add daily log weights
-    const logs = this.dailyLogRepo.getLogsByDateRange(
+    const logs = await this.dailyLogRepo.getLogsByDateRange(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
@@ -103,43 +118,42 @@ export class ProgressService {
     return Array.from(logMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  getBodyFatHistory(days: number): { date: string; bodyFat: number | null }[] {
+  async getBodyFatHistory(days: number): Promise<{ date: string; bodyFat: number | null }[]> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    const measurements = this.measurementRepo.getMeasurementsByDateRange(
+    const measurements = await this.measurementRepo.getMeasurementsByDateRange(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
 
     return measurements.map(m => ({
       date: m.date,
-      bodyFat: m.body_fat_percent
+      bodyFat: m.body_fat_percent,
     }));
   }
 
-  getMuscleMassHistory(days: number): { date: string; muscleMass: number | null }[] {
+  async getMuscleMassHistory(days: number): Promise<{ date: string; muscleMass: number | null }[]> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    const measurements = this.measurementRepo.getMeasurementsByDateRange(
+    const measurements = await this.measurementRepo.getMeasurementsByDateRange(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
 
     return measurements.map(m => ({
       date: m.date,
-      muscleMass: m.muscle_mass_kg
+      muscleMass: m.muscle_mass_kg,
     }));
   }
 
-  getWorkoutsPerWeek(weeks: number): { weekStart: string; count: number }[] {
+  async getWorkoutsPerWeek(weeks: number): Promise<{ weekStart: string; count: number }[]> {
     const results: { weekStart: string; count: number }[] = [];
-    const workoutRepo = new WorkoutRepository();
 
     for (let i = weeks - 1; i >= 0; i--) {
       const endDate = new Date();
@@ -150,38 +164,36 @@ export class ProgressService {
       startDate.setDate(startDate.getDate() - 6);
       startDate.setHours(0, 0, 0, 0);
 
-      const count = workoutRepo.getWeeklySessionCount(
+      const count = await this.workoutRepo.getWeeklySessionCount(
         startDate.toISOString().split('T')[0],
         endDate.toISOString().split('T')[0]
       );
 
       results.push({
         weekStart: startDate.toISOString().split('T')[0],
-        count
+        count,
       });
     }
     return results;
   }
 
-  getAverageCalories(days: number): number {
+  async getAverageCalories(days: number): Promise<number> {
     return this.nutritionRepo.getAverageDailyCalories(days);
   }
 
-  getWorkoutFrequencyPercentage(weeks: number = 1): number {
-    const workoutRepo = new WorkoutRepository();
+  async getWorkoutFrequencyPercentage(weeks: number = 1): Promise<number> {
     const profilesRepo = new SettingsRepository();
 
-    const settings = profilesRepo.getProfile();
+    const settings = await profilesRepo.getProfile();
     const preferredDays = settings.preferred_workout_days;
 
-    // Calculate expected workouts based on preferred days
     const weekDays = preferredDays.split('_').length;
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - (weeks * 7) + 1);
     startDate.setHours(0, 0, 0, 0);
 
-    const actualWorkouts = workoutRepo.getWeeklySessionCount(
+    const actualWorkouts = await this.workoutRepo.getWeeklySessionCount(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
@@ -202,24 +214,24 @@ export class RecommendationService {
     private settingsRepo: SettingsRepository
   ) {}
 
-  generateRecommendations(): (import('../models').Recommendation)[] {
-    const recommendations: import('../models').Recommendation[] = [];
+  async generateRecommendations(): Promise<Recommendation[]> {
+    const recommendations: Recommendation[] = [];
     const today = new Date().toISOString().split('T')[0];
-    const rules = recommendationRules.recommendation_rules;
+    const rules = recommendationRules;
 
     for (const rule of rules) {
       try {
-        const result = this.evaluateRule(rule, today);
+        const result = await this.evaluateRule(rule, today);
         if (result) {
           recommendations.push({
             id: undefined,
             rule_id: rule.id,
             message: result,
-            priority: rule.priority,
+            priority: rule.priority as Recommendation['priority'],
             category: rule.category,
             icon: rule.icon,
             created_at: new Date().toISOString(),
-            dismissed: false
+            dismissed: false,
           });
         }
       } catch (e) {
@@ -230,7 +242,7 @@ export class RecommendationService {
     return recommendations;
   }
 
-  private evaluateRule(rule: typeof recommendationRules.recommendation_rules[0], today: string): string | null {
+  private async evaluateRule(rule: (typeof recommendationRules)[number], today: string): Promise<string | null> {
     switch (rule.condition_type) {
       case 'today_workout_not_started':
         return this.checkTodayWorkoutNotStarted(today);
@@ -242,10 +254,10 @@ export class RecommendationService {
         return this.checkNoWorkoutToday(today);
 
       case 'previous_performance_available':
-        return null; // Handled contextually
+        return null;
 
       case 'hydration_progress_less_than':
-        return this.checkHydrationProgress(today, rule.condition_value as number);
+        return this.checkHydrationProgress(today);
 
       case 'hydration_progress_greater_than':
         return this.checkHydrationMet(today);
@@ -254,13 +266,13 @@ export class RecommendationService {
         return this.checkMealNotLogged(today, rule.condition_value as string);
 
       case 'calories_progress_less_than':
-        return this.checkCaloriesProgress(today, rule.condition_value as number);
+        return this.checkCaloriesProgress(today);
 
       case 'calories_progress_greater_than':
         return this.checkCaloriesHigh(today);
 
       case 'macro_progress_less_than':
-        return this.checkMacroProgress(today, rule.macro_type, rule.condition_value as number);
+        return this.checkMacroProgress(today, rule.macro_type!, rule.condition_value as number);
 
       case 'no_nutrition_logged_today':
         return this.checkNoNutritionLogged(today);
@@ -275,7 +287,7 @@ export class RecommendationService {
         return this.checkNoActiveGoals();
 
       case 'goal_progress_less_than':
-        return null; // Handled contextually
+        return null;
 
       case 'journal_not_started_today':
         return this.checkJournalNotStarted(today);
@@ -285,11 +297,10 @@ export class RecommendationService {
     }
   }
 
-  private checkTodayWorkoutNotStarted(today: string): string | null {
-    const session = this.workoutRepo.getTodaysSession();
+  private async checkTodayWorkoutNotStarted(today: string): Promise<string | null> {
+    const session = await this.workoutRepo.getTodaysSession();
     if (!session) {
-      const programsRepo = new SettingsRepository();
-      const profile = programsRepo.getProfile();
+      const profile = await this.settingsRepo.getProfile();
       const workoutDays = profile.preferred_workout_days.split('_');
       const dayIndex = new Date().getDay();
       const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -302,53 +313,46 @@ export class RecommendationService {
     return null;
   }
 
-  private checkPlannedWorkoutsNotCompleted(today: string): string | null {
+  private async checkPlannedWorkoutsNotCompleted(today: string): Promise<string | null> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 6);
     startDate.setHours(0, 0, 0, 0);
 
-    const workoutRepo = new WorkoutRepository();
-    const count = workoutRepo.getWeeklySessionCount(
+    const count = await this.workoutRepo.getWeeklySessionCount(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
-    // This is a heuristic - can be improved with program tracking
     if (count < 2) {
       return "You have planned workouts this week that are not yet completed. Finish them to stay consistent.";
     }
     return null;
   }
 
-  private checkNoWorkoutToday(today: string): string | null {
-    const workoutRepo = new WorkoutRepository();
-    const sessions = workoutRepo.getSessionsByDateRange(today, today);
+  private async checkNoWorkoutToday(today: string): Promise<string | null> {
+    const sessions = await this.workoutRepo.getSessionsByDateRange(today, today);
     if (sessions.length === 0 || sessions.every(s => s.end_time !== null)) {
       return "You haven't completed a workout today yet. Consider doing one to build consistency.";
     }
     return null;
   }
 
-  private checkHydrationProgress(today: string, threshold: number): string | null {
-    const hydrationRepo = new HydrationRepository();
-    const settingsRepo = new SettingsRepository();
-    const logged = hydrationRepo.getTodaysHydration(today);
-    const targets = settingsRepo.getNutritionTargets();
+  private async checkHydrationProgress(today: string): Promise<string | null> {
+    const logged = await this.hydrationRepo.getTodaysHydration(today);
+    const targets = await this.settingsRepo.getNutritionTargets();
     const target = targets.hydration_liters;
     if (target > 0) {
       const progress = (logged / target) * 100;
-      if (progress < threshold) {
+      if (progress < 60) {
         return `You've logged ${logged.toFixed(1)} L of water today. Your target is ${target} L. Try to drink more.`;
       }
     }
     return null;
   }
 
-  private checkHydrationMet(today: string): string | null {
-    const hydrationRepo = new HydrationRepository();
-    const settingsRepo = new SettingsRepository();
-    const logged = hydrationRepo.getTodaysHydration(today);
-    const targets = settingsRepo.getNutritionTargets();
+  private async checkHydrationMet(today: string): Promise<string | null> {
+    const logged = await this.hydrationRepo.getTodaysHydration(today);
+    const targets = await this.settingsRepo.getNutritionTargets();
     const target = targets.hydration_liters;
     if (target > 0 && logged >= target) {
       return "Great job! You've reached your daily hydration target.";
@@ -356,83 +360,74 @@ export class RecommendationService {
     return null;
   }
 
-  private checkMealNotLogged(today: string, mealType: string): string | null {
-    const nutritionRepo = new NutritionRepository();
-    const meals = nutritionRepo.getMealsByDate(today);
+  private async checkMealNotLogged(today: string, mealType: string): Promise<string | null> {
+    const meals = await this.nutritionRepo.getMealsByDate(today);
     const hasMeal = meals.some(m => m.meal_type === mealType);
     if (!hasMeal) {
-      const mealLabels = { breakfast: 'breakfast', lunch: 'lunch', dinner: 'dinner', snack: 'snacks' };
-      return `You haven't logged your ${mealLabels[mealType]} today. Don't forget to track your meals.`;
+      const mealLabels: Record<string, string> = { breakfast: 'breakfast', lunch: 'lunch', dinner: 'dinner', snack: 'snacks' };
+      return `You haven't logged your ${mealLabels[mealType] || mealType} today. Don't forget to track your meals.`;
     }
     return null;
   }
 
-  private checkCaloriesProgress(today: string, threshold: number): string | null {
-    const nutritionRepo = new NutritionRepository();
-    const settingsRepo = new SettingsRepository();
-    const nutrition = nutritionRepo.getDailyNutrition(today);
-    const targets = settingsRepo.getNutritionTargets();
+  private async checkCaloriesProgress(today: string): Promise<string | null> {
+    const nutrition = await this.nutritionRepo.getDailyNutrition(today);
+    const targets = await this.settingsRepo.getNutritionTargets();
     if (targets.calories_kcal > 0) {
       const progress = (nutrition.calories / targets.calories_kcal) * 100;
-      if (progress < threshold) {
+      if (progress < 80) {
         return `You've consumed ${Math.round(nutrition.calories)} kcal today. Your target is ${targets.calories_kcal} kcal. Make sure you're eating enough to support your goals.`;
       }
     }
     return null;
   }
 
-  private checkCaloriesHigh(today: string): string | null {
-    const nutritionRepo = new NutritionRepository();
-    const settingsRepo = new SettingsRepository();
-    const nutrition = nutritionRepo.getDailyNutrition(today);
-    const targets = settingsRepo.getNutritionTargets();
+  private async checkCaloriesHigh(today: string): Promise<string | null> {
+    const nutrition = await this.nutritionRepo.getDailyNutrition(today);
+    const targets = await this.settingsRepo.getNutritionTargets();
     if (targets.calories_kcal > 0 && nutrition.calories > targets.calories_kcal * 1.2) {
       return `You've exceeded your calorie target today (${Math.round(nutrition.calories)} / ${targets.calories_kcal} kcal). Consider lighter meals tomorrow.`;
     }
     return null;
   }
 
-  private checkMacroProgress(today: string, macroType: string, threshold: number): string | null {
-    const nutritionRepo = new NutritionRepository();
-    const settingsRepo = new SettingsRepository();
-    const nutrition = nutritionRepo.getDailyNutrition(today);
-    const targets = settingsRepo.getNutritionTargets();
+  private async checkMacroProgress(today: string, macroType: string, threshold: number): Promise<string | null> {
+    const nutrition = await this.nutritionRepo.getDailyNutrition(today);
+    const targets = await this.settingsRepo.getNutritionTargets();
 
-    const macroMap = {
+    const macroMap: Record<string, { current: number; target: number }> = {
       protein: { current: nutrition.protein, target: targets.protein_g },
       carbohydrates: { current: nutrition.carbs, target: targets.carbohydrates_g },
-      fat: { current: nutrition.fat, target: targets.fat_g }
+      fat: { current: nutrition.fat, target: targets.fat_g },
     };
 
     const macro = macroMap[macroType];
     if (macro && macro.target > 0) {
       const progress = (macro.current / macro.target) * 100;
       if (progress < threshold) {
-        const macroLabels = { protein: 'protein', carbohydrates: 'carbohydrates', fat: 'fat' };
-        return `You've consumed ${Math.round(macro.current)} g of ${macroLabels[macroType]} today. Your target is ${macro.target} g. Consider adding a ${macroLabels[macroType]}-rich snack.`;
+        const macroLabels: Record<string, string> = { protein: 'protein', carbohydrates: 'carbohydrates', fat: 'fat' };
+        const safeType = macroType in macroLabels ? macroType : 'protein';
+        return `You've consumed ${Math.round(macro.current)} g of ${macroLabels[safeType]} today. Your target is ${macro.target} g. Consider adding a ${macroLabels[safeType]}-rich snack.`;
       }
     }
     return null;
   }
 
-  private checkNoNutritionLogged(today: string): string | null {
-    const nutritionRepo = new NutritionRepository();
-    const nutrition = nutritionRepo.getDailyNutrition(today);
+  private async checkNoNutritionLogged(today: string): Promise<string | null> {
+    const nutrition = await this.nutritionRepo.getDailyNutrition(today);
     if (nutrition.calories === 0) {
       return "You haven't logged any meals today. Start tracking your nutrition to see your daily totals.";
     }
     return null;
   }
 
-  private checkAlways(today: string, rule: typeof recommendationRules.recommendation_rules[0]): string | null {
-    // Weekly consistency info
-    const workoutRepo = new WorkoutRepository();
+  private async checkAlways(today: string, rule: (typeof recommendationRules)[number]): Promise<string | null> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 6);
     startDate.setHours(0, 0, 0, 0);
 
-    const count = workoutRepo.getWeeklySessionCount(
+    const count = await this.workoutRepo.getWeeklySessionCount(
       startDate.toISOString().split('T')[0],
       endDate.toISOString().split('T')[0]
     );
@@ -443,31 +438,32 @@ export class RecommendationService {
     return null;
   }
 
-  private checkDaysSinceMeasurement(today: string, threshold: number): string | null {
-    const daysSince = this.measurementRepo.getDaysSinceLastMeasurement();
+  private async checkDaysSinceMeasurement(today: string, threshold: number): Promise<string | null> {
+    const daysSince = await this.measurementRepo.getDaysSinceLastMeasurement();
     if (daysSince > threshold) {
       return "It's been over two weeks since your last body measurement. Regular tracking helps you see your progress.";
     }
     return null;
   }
 
-  private checkNoActiveGoals(): string | null {
-    const goals = this.goalRepo.getActiveGoals();
+  private async checkNoActiveGoals(): Promise<string | null> {
+    const goals = await this.goalRepo.getActiveGoals();
     if (goals.length === 0) {
       return "You haven't set any goals yet. Goals help you stay focused and motivated. Create your first goal today.";
     }
     return null;
   }
 
-  private checkJournalNotStarted(today: string): string | null {
-    const logRepo = new DailyLogRepository();
-    const log = logRepo.getLog(today);
-    // If no log exists, journal hasn't been started
-    return "You haven't written in your daily journal yet. Take a moment to reflect on your day.";
+  private async checkJournalNotStarted(today: string): Promise<string | null> {
+    const log = await this.dailyLogRepo.getLog(today);
+    if (!log) {
+      return "You haven't written in your daily journal yet. Take a moment to reflect on your day.";
+    }
+    return null;
   }
 
-  getExerciseRecommendation(exerciseId: string): string | null {
-    const lastPerformance = this.workoutRepo.getLastSessionSets(exerciseId);
+  async getExerciseRecommendation(exerciseId: string): Promise<string | null> {
+    const lastPerformance = await this.workoutRepo.getLastSessionSets(exerciseId);
     if (!lastPerformance || lastPerformance.sets.length === 0) {
       return null;
     }
@@ -487,7 +483,7 @@ export class NutritionService {
     private settingsRepo: SettingsRepository
   ) {}
 
-  getDailyTotals(date: string): {
+  async getDailyTotals(date: string): Promise<{
     calories: number;
     protein: number;
     carbs: number;
@@ -496,9 +492,9 @@ export class NutritionService {
     targetProtein: number;
     targetCarbs: number;
     targetFat: number;
-  } {
-    const nutrition = this.nutritionRepo.getDailyNutrition(date);
-    const targets = this.settingsRepo.getNutritionTargets();
+  }> {
+    const nutrition = await this.nutritionRepo.getDailyNutrition(date);
+    const targets = await this.settingsRepo.getNutritionTargets();
 
     return {
       calories: Math.round(nutrition.calories),
@@ -508,29 +504,25 @@ export class NutritionService {
       targetCalories: targets.calories_kcal,
       targetProtein: targets.protein_g,
       targetCarbs: targets.carbohydrates_g,
-      targetFat: targets.fat_g
+      targetFat: targets.fat_g,
     };
   }
 
-  getCaloriesRemaining(date: string): number {
-    const totals = this.getDailyTotals(date);
+  async getCaloriesRemaining(date: string): Promise<number> {
+    const totals = await this.getDailyTotals(date);
     return Math.max(0, totals.targetCalories - totals.calories);
   }
 
-  getMacroProgress(date: string): {
-    protein: number;
-    carbs: number;
-    fat: number;
-  } {
-    const totals = this.getDailyTotals(date);
+  async getMacroProgress(date: string): Promise<{ protein: number; carbs: number; fat: number }> {
+    const totals = await this.getDailyTotals(date);
     return {
       protein: Math.min(100, Math.round((totals.protein / totals.targetProtein) * 100)),
       carbs: Math.min(100, Math.round((totals.carbs / totals.targetCarbs) * 100)),
-      fat: Math.min(100, Math.round((totals.fat / totals.targetFat) * 100))
+      fat: Math.min(100, Math.round((totals.fat / totals.targetFat) * 100)),
     };
   }
 
-  searchFoods(query: string): typeof foods {
+  searchFoods(query: string): Food[] {
     const lowerQuery = query.toLowerCase();
     return foods.filter(f =>
       f.name.toLowerCase().includes(lowerQuery)
@@ -552,7 +544,7 @@ export class NutritionService {
       calories: Math.round(food.calories * multiplier),
       protein: Math.round(food.protein_g * multiplier * 10) / 10,
       carbs: Math.round(food.carbs_g * multiplier * 10) / 10,
-      fat: Math.round(food.fat_g * multiplier * 10) / 10
+      fat: Math.round(food.fat_g * multiplier * 10) / 10,
     };
   }
 }
@@ -567,35 +559,36 @@ export class BackupService {
     const hydrationRepo = new HydrationRepository();
     const settingsRepo = new SettingsRepository();
 
-    const profile = settingsRepo.getProfile();
-    const workouts = workoutRepo.getSessions();
-    const measurements = measurementRepo.getMeasurements();
-    const goals = goalRepo.getAllGoals();
-    const logs = dailyLogRepo.getLogsByDateRange(
+    const profile = await settingsRepo.getProfile();
+    const workouts = await workoutRepo.getSessions();
+    const measurements = await measurementRepo.getMeasurements();
+    const goals = await goalRepo.getAllGoals();
+    const logs = await dailyLogRepo.getLogsByDateRange(
       '2020-01-01',
       new Date().toISOString().split('T')[0]
     );
-    const hydration = hydrationRepo.getEntriesByDate(
-      new Date().toISOString().split('T')[0]
-    );
+    const nutritionTargets = await settingsRepo.getNutritionTargets();
 
-    // Get all historical hydration
-    const allHydration: HydrationEntry[] = [];
-    const allDates = new Set<string>();
-    for (const entry of hydration) {
-      allDates.add(entry.date);
+    const allHydration: import('../models').HydrationEntry[] = [];
+    const uniqueDates = new Set<string>();
+    for (const workout of workouts) {
+      uniqueDates.add(workout.date);
+    }
+    for (const date of uniqueDates) {
+      const entries = await hydrationRepo.getEntriesByDate(date);
+      allHydration.push(...entries);
     }
 
     const backup = {
       version: '1.0',
       exported_at: new Date().toISOString(),
       profile,
+      nutrition_targets: nutritionTargets,
       workouts,
       measurements,
       goals,
       daily_logs: logs,
       hydration: allHydration,
-      nutrition_targets: settingsRepo.getNutritionTargets()
     };
 
     return JSON.stringify(backup, null, 2);
@@ -611,11 +604,27 @@ export class BackupService {
 
       const settingsRepo = new SettingsRepository();
       await settingsRepo.updateProfile(data.profile);
+      if (data.nutrition_targets) {
+        await settingsRepo.updateNutritionTargets(data.nutrition_targets);
+      }
 
-      // Import is handled safely with validation
       return { success: true };
     } catch (e) {
       return { success: false, error: 'Failed to parse backup data' };
     }
   }
+}
+
+export function todayISO(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+export function timeNow(): string {
+  return new Date().toTimeString().slice(0, 5);
+}
+
+export function dateDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().split('T')[0];
 }

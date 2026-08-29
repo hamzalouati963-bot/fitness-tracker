@@ -1,4 +1,4 @@
-import * as SQLite from 'expo-sqlite';
+import * as SQLite from 'expo-sqlite/next';
 
 const DB_NAME = 'fitness_tracker.db';
 

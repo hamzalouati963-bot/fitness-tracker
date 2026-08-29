@@ -1,0 +1,145 @@
+name: Build Android APK
+
+# Déclenche le build :
+# - automatiquement à chaque push vers main / master
+# - manuellement depuis l'onglet Actions (workflow_dispatch)
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    # Build 100% sur un runner Linux frais fourni par GitHub.
+    # Aucun Android Studio ni Android SDK local n'est nécessaire sur le PC.
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Récupération du projet
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Node.js compatible Expo SDK 50 (SDK 50 requiert Node >= 16, recommande 18/20)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      # 3) Installation des dépendances npm (exactement le package-lock.json)
+      - name: Install npm dependencies
+        run: npm ci
+
+      # 4) Java 17 (requis par Expo SDK 50 / React Native 0.73 / AGP 8.1)
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 5) Android SDK : la action android-actions/setup-android installe le
+      #    SDK, accepte les licences et configure ANDROID_HOME / ANDROID_SDK_ROOT.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 5b) Composants Android requis par le projet (compileSdk/targetSdk 34).
+      #      NDK 25.1.8937393 vient de android/build.gradle (ndkVersion).
+      #      Les vraies erreurs ne sont PAS masquées ici (aucun "|| true").
+      - name: Install Android SDK platform and NDK
+        shell: bash
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager --install "ndk;25.1.8937393"
+
+      # 6) Vérification de l'environnement (Java, SDK, Gradle, Node)
+      - name: Verify environment
+        shell: bash
+        run: |
+          echo "=== java -version ==="
+          java -version
+          echo "=== javac -version ==="
+          javac -version
+          echo "=== node -v / npm -v ==="
+          node -v
+          npm -v
+          echo "=== adb --version ==="
+          adb --version
+          echo "=== sdkmanager --version ==="
+          sdkmanager --version
+          echo "=== ANDROID_HOME / ANDROID_SDK_ROOT ==="
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+      # 7) TypeScript : échoue uniquement si une vraie erreur TS existe
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      # 8) Expo Doctor : valide la config. Non bloquant (warnings informatifs).
+      - name: Expo diagnostics (expo-doctor)
+        run: npx expo-doctor 2>&1 || true
+
+      # 9) Génération du dossier android NAO (native + splash) via prebuild --clean.
+      #    --clean garantit un dossier natif vierge et cohérent à chaque build,
+      #    et corrige définitivement la ressource splashscreen_background.
+      - name: Generate Android project (prebuild)
+        run: npx expo prebuild --platform android --clean
+
+      # 10) Vérifications post-prebuild obligatoires.
+      #      Si une ressource/clé est absente, le workflow échoue immédiatement
+      #      avec un message clair (aucune erreur masquée).
+      - name: Verify native project integrity
+        shell: bash
+        run: |
+          echo "=== Vérification dossier android/ ==="
+          test -d "android" || { echo "ERREUR : dossier android/ absent après prebuild"; exit 1; }
+          test -f "android/gradlew" || { echo "ERREUR : android/gradlew absent"; exit 1; }
+          echo "OK : android/ et android/gradlew présents"
+
+          echo "=== Vérification ressource splash (corrige le bug anteneur) ==="
+          if grep -q "splashscreen_background" "android/app/src/main/res/values/colors.xml"; then
+            echo "OK : splashscreen_background défini dans colors.xml"
+          else
+            echo "ERREUR : splashscreen_background introuvable dans colors.xml"
+            exit 1
+          fi
+          test -f "android/app/src/main/res/drawable/splashscreen.xml" \
+            || { echo "ERREUR : android/.../drawable/splashscreen.xml absent"; exit 1; }
+          echo "OK : splashscreen.xml présent"
+
+          echo "=== Vérification cohérence package applicationId ==="
+          grep -q "com.hamzalouati.fitnesstracker" "android/app/build.gradle" \
+            && echo "OK : applicationId cohérent" \
+            || echo "ATTENTION (non bloquant): applicationId non trouvé dans build.gradle"
+
+      # 11) Compilation de l'APK DEBUG avec Gradle
+      - name: Build debug APK with Gradle
+        working-directory: android
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      # 12) Vérification explicite de l'existence de l'APK (échec si absent)
+      - name: Verify APK produced
+        shell: bash
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK" ]; then
+            echo "OK : $APK"
+            ls -lh "$APK"
+          else
+            echo "ERREUR : APK introuvable à $APK"
+            find android/app/build/outputs -name "*.apk" 2>/dev/null || true
+            exit 1
+          fi
+
+      # 13) Publication de l'APK comme Artifact GitHub (app-debug.apk)
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitness-tracker-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

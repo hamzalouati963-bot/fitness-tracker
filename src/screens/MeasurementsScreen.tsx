@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MeasurementRepository, SettingsRepository } from '../database/repositories';
+import { todayISO } from '../services';
+import type { BodyMeasurement } from '../models';
 
 interface MeasurementsScreenProps {
   navigation: any;
 }
 
-const historicalData = [
-  { date: '2025-07-08', weight: 119.6, body_fat: 31.9, muscle_mass: 77.4, bmi: 36.1, source: 'InBody' },
-  { date: '2025-08-19', weight: 116.2, body_fat: 31.1, muscle_mass: 76.2, bmi: 35.1, source: 'InBody' },
-];
-
 export default function MeasurementsScreen({ navigation }: MeasurementsScreenProps) {
-  const [form, setForm] = React.useState({
+  const [latest, setLatest] = useState<BodyMeasurement | null>(null);
+  const [history, setHistory] = useState<BodyMeasurement[]>([]);
+  const [height, setHeight] = useState(180);
+  const [form, setForm] = useState({
     weight: '',
     waist: '',
     chest: '',
@@ -24,16 +25,69 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
     source: 'manual',
   });
 
-  const saveMeasurement = () => {
+  const measurementRepo = new MeasurementRepository();
+
+  const loadMeasurements = useCallback(async () => {
+    try {
+      const settingsRepo = new SettingsRepository();
+      const profile = await settingsRepo.getProfile();
+      if (profile?.height_cm) setHeight(profile.height_cm);
+
+      const latestData = await measurementRepo.getLatestMeasurement();
+      const historyData = await measurementRepo.getMeasurements(15);
+      setLatest(latestData);
+      setHistory(historyData);
+    } catch (e) {
+      console.error('Failed to load measurements:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMeasurements();
+    const unsubscribe = navigation.addListener('focus', loadMeasurements);
+    return unsubscribe;
+  }, [navigation, loadMeasurements]);
+
+  const saveMeasurement = async () => {
     if (!form.weight && !form.body_fat) {
       Alert.alert('Error', 'At least weight or body fat must be entered');
       return;
     }
-    Alert.alert('Saved', 'Measurement recorded successfully');
-    setForm({ weight: '', waist: '', chest: '', arm: '', thigh: '', body_fat: '', muscle_mass: '', notes: '', source: 'manual' });
+
+    try {
+      const weightNum = parseFloat(form.weight) || 0;
+      const bmiValue = weightNum > 0 && height > 0 ? weightNum / (height / 100) / (height / 100) : null;
+
+      await measurementRepo.createMeasurement({
+        date: todayISO(),
+        weight_kg: form.weight ? parseFloat(form.weight) : null,
+        waist_cm: form.waist ? parseFloat(form.waist) : null,
+        chest_cm: form.chest ? parseFloat(form.chest) : null,
+        arm_cm: form.arm ? parseFloat(form.arm) : null,
+        thigh_cm: form.thigh ? parseFloat(form.thigh) : null,
+        body_fat_percent: form.body_fat ? parseFloat(form.body_fat) : null,
+        muscle_mass_kg: form.muscle_mass ? parseFloat(form.muscle_mass) : null,
+        bmi: bmiValue ? Math.round(bmiValue * 10) / 10 : null,
+        water_percent: null,
+        visceral_fat: null,
+        phase_angle: null,
+        source: form.source,
+        notes: form.notes,
+      });
+
+      setForm({ weight: '', waist: '', chest: '', arm: '', thigh: '', body_fat: '', muscle_mass: '', notes: '', source: 'manual' });
+      await loadMeasurements();
+      Alert.alert('Saved', 'Measurement recorded successfully');
+    } catch (e) {
+      console.error('Failed to save measurement:', e);
+    }
   };
 
-  const bmi = form.weight && form.weight > 0 ? (parseFloat(form.weight) / 1.82 / 1.82).toFixed(1) : null;
+  const bmi = form.weight && parseFloat(form.weight) > 0
+    ? (parseFloat(form.weight) / (height / 100) / (height / 100)).toFixed(1)
+    : null;
+
+  const sources = ['manual', 'inbody', 'dexa', 'other'];
 
   return (
     <ScrollView style={styles.container}>
@@ -42,45 +96,51 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Measurements</Text>
-        <Icon name="add" size={24} color="#2563EB" onPress={saveMeasurement}/>
+        <Icon name="add" size={24} color="#2563EB" onPress={saveMeasurement} />
       </View>
 
       <View style={styles.todayCard}>
         <View style={styles.todayHeader}>
           <Text style={styles.todayLabel}>Current Weight</Text>
-          <Text style={styles.todayValue}>116.2 kg</Text>
+          <Text style={styles.todayValue}>{latest?.weight_kg ? `${latest.weight_kg} kg` : 'No data'}</Text>
         </View>
         <View style={styles.todayRow}>
           <View style={styles.todayMetric}>
             <Text style={styles.metricLabel}>Body Fat</Text>
-            <Text style={styles.metricValue}>31.1%</Text>
+            <Text style={styles.metricValue}>{latest?.body_fat_percent ? `${latest.body_fat_percent}%` : '—'}</Text>
           </View>
           <View style={styles.todayMetric}>
             <Text style={styles.metricLabel}>Muscle Mass</Text>
-            <Text style={styles.metricValue}>76.2 kg</Text>
+            <Text style={styles.metricValue}>{latest?.muscle_mass_kg ? `${latest.muscle_mass_kg} kg` : '—'}</Text>
           </View>
           <View style={styles.todayMetric}>
             <Text style={styles.metricLabel}>BMI</Text>
-            <Text style={styles.metricValue}>35.1</Text>
+            <Text style={styles.metricValue}>{latest?.bmi ?? '—'}</Text>
           </View>
         </View>
-        <Text style={styles.todaySource}>Source: InBody • 19/08/2025</Text>
+        {latest && (
+          <Text style={styles.todaySource}>Source: {latest.source} • {latest.date}</Text>
+        )}
       </View>
 
       <View style={styles.historyCard}>
         <Text style={styles.sectionTitle}>HISTORICAL DATA</Text>
-        {historicalData.map((entry, i) => (
-          <View key={i} style={styles.historyEntry}>
-            <Text style={styles.historyDate}>{entry.date}</Text>
-            <View style={styles.historyMetrics}>
-              <Text style={styles.historyMetric}>{entry.weight} kg</Text>
-              <Text style={styles.historyMetric}>BF: {entry.body_fat}%</Text>
-              <Text style={styles.historyMetric}>MM: {entry.muscle_mass} kg</Text>
-              <Text style={styles.historyMetric}>BMI: {entry.bmi}</Text>
+        {history.length === 0 ? (
+          <Text style={styles.emptyHistory}>No measurements logged yet</Text>
+        ) : (
+          history.map((entry) => (
+            <View key={entry.id} style={styles.historyEntry}>
+              <Text style={styles.historyDate}>{entry.date}</Text>
+              <View style={styles.historyMetrics}>
+                {entry.weight_kg && <Text style={styles.historyMetric}>{entry.weight_kg} kg</Text>}
+                {entry.body_fat_percent && <Text style={styles.historyMetric}>BF: {entry.body_fat_percent}%</Text>}
+                {entry.muscle_mass_kg && <Text style={styles.historyMetric}>MM: {entry.muscle_mass_kg} kg</Text>}
+                {entry.bmi && <Text style={styles.historyMetric}>BMI: {entry.bmi}</Text>}
+              </View>
+              <Text style={styles.historySource}>{entry.source}</Text>
             </View>
-            <Text style={styles.historySource}>{entry.source}</Text>
-          </View>
-        ))}
+          ))
+        )}
       </View>
 
       <View style={styles.newMeasurementCard}>
@@ -90,7 +150,7 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
             <Text style={styles.inputLabel}>Weight (kg)</Text>
             <TextInput style={styles.input} value={form.weight} onChangeText={(t) => setForm({ ...form, weight: t })} keyboardType="decimal-pad" placeholder="0" />
           </View>
-          {bmi && <Text style={styles.autoBmi}>BMI: {bmi}</Text>}
+          {bmi && <View style={[styles.inputGroup, { justifyContent: 'center' }]}><Text style={styles.autoBmi}>BMI: {bmi}</Text></View>}
         </View>
         <View style={styles.formRow}>
           <View style={styles.inputGroup}>
@@ -124,9 +184,9 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
         </View>
         <Text style={styles.inputLabel}>Source</Text>
         <View style={styles.sourceRow}>
-          {['manual', 'inbody', ' DEXA', 'other'].map(s => (
+          {sources.map((s) => (
             <TouchableOpacity key={s} style={[styles.sourceChip, form.source === s && styles.sourceChipActive]} onPress={() => setForm({ ...form, source: s })}>
-              <Text style={[styles.sourceChipText, form.source === s && styles.sourceChipTextActive]}>{s.charAt(0).toUpperCase() + s.slice(1).trim()}</Text>
+              <Text style={[styles.sourceChipText, form.source === s && styles.sourceChipTextActive]}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -155,10 +215,11 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
   todaySource: { fontSize: 11, color: '#9CA3AF', marginTop: 12, textAlign: 'right' },
   historyCard: { margin: 16, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 },
+  emptyHistory: { fontSize: 13, color: '#9CA3AF', padding: 8, textAlign: 'center' },
   sectionTitle: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', marginBottom: 12, marginLeft: 4 },
   historyEntry: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   historyDate: { fontSize: 13, fontWeight: '600', color: '#6B7280', marginBottom: 4 },
-  historyMetrics: { flexDirection: 'row', gap: 12, marginBottom: 2 },
+  historyMetrics: { flexDirection: 'row', gap: 12, marginBottom: 2, flexWrap: 'wrap' },
   historyMetric: { fontSize: 13, color: '#1F2937', fontWeight: '500' },
   historySource: { fontSize: 11, color: '#9CA3AF' },
   newMeasurementCard: { margin: 16, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 },
@@ -177,5 +238,3 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
   spacer: { height: 20 },
 });
-
-export { MeasurementsScreen };

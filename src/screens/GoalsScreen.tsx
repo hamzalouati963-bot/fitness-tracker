@@ -1,48 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { GoalRepository } from '../database/repositories';
+import { todayISO } from '../services';
+import type { Goal } from '../models';
 
 interface GoalsScreenProps {
   navigation: any;
 }
 
-export default function GoalsScreen({ navigation }: GoalsScreenProps) {
-  const [goals, setGoals] = useState<any[]>([
-    {
-      id: 1,
-      name: 'Weight Loss Target',
-      type: 'weight',
-      start_value: 116.2,
-      target_value: 95,
-      current_value: 112.8,
-      unit: 'kg',
-      is_active: true,
-      progress: 25,
-    },
-    {
-      id: 2,
-      name: 'Weekly Workouts',
-      type: 'workouts_per_week',
-      start_value: 0,
-      target_value: 4,
-      current_value: 3,
-      unit: 'days/week',
-      is_active: true,
-      progress: 75,
-    },
-    {
-      id: 3,
-      name: 'Hydration Goal',
-      type: 'hydration',
-      start_value: 0,
-      target_value: 2.5,
-      current_value: 2.5,
-      unit: 'L',
-      is_active: true,
-      progress: 100,
-    },
-  ]);
+interface GoalWithProgress extends Goal {
+  progress: number;
+}
 
+export default function GoalsScreen({ navigation }: GoalsScreenProps) {
+  const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: '',
@@ -52,44 +24,70 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
     unit: 'kg',
   });
 
-  const calculateProgress = (goal: any) => {
-    if (goal.start_value === goal.target_value) return 0;
-    const progress = ((goal.current_value - goal.start_value) / (goal.target_value - goal.start_value)) * 100;
-    return Math.max(0, Math.min(100, progress));
-  };
+  const goalRepo = new GoalRepository();
 
-  const addGoal = () => {
+  const loadGoals = useCallback(async () => {
+    try {
+      const activeGoals = await goalRepo.getActiveGoals();
+      const withProgress: GoalWithProgress[] = [];
+      for (const goal of activeGoals) {
+        const progress = await goalRepo.getGoalProgress(goal.id!);
+        withProgress.push({ ...goal, progress });
+      }
+      setGoals(withProgress);
+    } catch (e) {
+      console.error('Failed to load goals:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGoals();
+    const unsubscribe = navigation.addListener('focus', loadGoals);
+    return unsubscribe;
+  }, [navigation, loadGoals]);
+
+  const addGoal = async () => {
     if (!newGoal.name.trim() || !newGoal.target_value) {
       Alert.alert('Error', 'Please fill in the required fields');
       return;
     }
 
-    const goal = {
-      id: Date.now(),
-      name: newGoal.name,
-      type: newGoal.type,
-      start_value: parseFloat(newGoal.start_value) || 0,
-      target_value: parseFloat(newGoal.target_value),
-      current_value: parseFloat(newGoal.start_value) || 0,
-      unit: newGoal.unit,
-      is_active: true,
-      progress: 0,
-    };
+    try {
+      await goalRepo.createGoal({
+        goal_type: newGoal.type as Goal['goal_type'],
+        name: newGoal.name.trim(),
+        start_value: parseFloat(newGoal.start_value) || 0,
+        target_value: parseFloat(newGoal.target_value),
+        current_value: parseFloat(newGoal.start_value) || 0,
+        unit: newGoal.unit,
+        start_date: todayISO(),
+        target_date: null,
+        is_active: true,
+        notes: '',
+      });
 
-    setGoals([goal, ...goals]);
-    setNewGoal({ name: '', type: 'weight', start_value: '', target_value: '', unit: 'kg' });
-    setShowAddGoal(false);
-    Alert.alert('Goal Created', `Your goal "${goal.name}" has been created!`);
+      setNewGoal({ name: '', type: 'weight', start_value: '', target_value: '', unit: 'kg' });
+      setShowAddGoal(false);
+      await loadGoals();
+      Alert.alert('Goal Created', 'Your goal has been created!');
+    } catch (e) {
+      console.error('Failed to create goal:', e);
+    }
   };
 
-  const deleteGoal = (id: number) => {
-    setGoals(goals.filter(g => g.id !== id));
+  const deleteGoal = async (id: number) => {
+    try {
+      await goalRepo.deleteGoal(id);
+      await loadGoals();
+    } catch (e) {
+      console.error('Failed to delete goal:', e);
+    }
   };
 
   const goalTypes = [
     { id: 'weight', label: 'Weight', icon: '⚖️', unit: 'kg' },
     { id: 'body_measurement', label: 'Body Measurement', icon: '📏', unit: 'cm' },
-    { id: 'workouts_per_week', label: 'Workouts / Week', icon: '🏋️', unit: 'days/week' },
+    { id: 'workouts_per_week', label: 'Workouts / Week', icon: '🏋️', unit: 'workouts' },
     { id: 'hydration', label: 'Hydration', icon: '💧', unit: 'L' },
     { id: 'nutrition_tracking', label: 'Nutrition Tracking', icon: '🍽️', unit: 'days' },
     { id: 'exercise_performance', label: 'Exercise Performance', icon: '💪', unit: 'reps' },
@@ -120,24 +118,24 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.goalsList}>
+        <View style={styles.goalsList}>
           {goals.map((goal) => (
             <View key={goal.id} style={styles.goalCard}>
               <View style={styles.goalHeader}>
                 <View style={styles.goalInfo}>
                   <View style={styles.goalTypeIcon}>
                     <Text style={styles.typeIconText}>
-                      {goalTypes.find(t => t.id === goal.type)?.icon || '🎯'}
+                      {goalTypes.find(t => t.id === goal.goal_type)?.icon || '🎯'}
                     </Text>
                   </View>
                   <View style={styles.goalTextContainer}>
                     <Text style={styles.goalName}>{goal.name}</Text>
                     <Text style={styles.goalType}>
-                      {goalTypes.find(t => t.id === goal.type)?.label}
+                      {goalTypes.find(t => t.id === goal.goal_type)?.label}
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => deleteGoal(goal.id)}>
+                <TouchableOpacity onPress={() => deleteGoal(goal.id!)}>
                   <Icon name="delete-outline" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
@@ -145,10 +143,10 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
               <View style={styles.goalProgressSection}>
                 <View style={styles.progressHeader}>
                   <Text style={styles.progressLabel}>Progress</Text>
-                  <Text style={styles.progressValue}>{goal.progress.toFixed(0)}%</Text>
+                  <Text style={styles.progressValue}>{Math.round(goal.progress)}%</Text>
                 </View>
                 <View style={styles.progressBarOuter}>
-                  <View style={[styles.progressBarInner, { width: `${goal.progress}%` }]} />
+                  <View style={[styles.progressBarInner, { width: `${Math.max(0, Math.min(100, goal.progress))}%` }]} />
                 </View>
               </View>
 
@@ -159,8 +157,8 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
                 </View>
                 <View style={styles.metricItem}>
                   <Text style={styles.metricLabel}>Current</Text>
-                  <Text style={[styles.metricValue, { color: goal.current_value < goal.start_value && goal.target_value < goal.start_value ? '#10B981' : '#1F2937' }]}>
-                    {goal.current_value} {goal.unit}
+                  <Text style={styles.metricValue}>
+                    {(goal.current_value ?? goal.start_value).toFixed(1)} {goal.unit}
                   </Text>
                 </View>
                 <View style={styles.metricItem}>
@@ -172,7 +170,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
               </View>
             </View>
           ))}
-        </ScrollView>
+        </View>
       )}
 
       <View style={styles.spacer} />
@@ -359,7 +357,6 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   emptyState: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
@@ -389,7 +386,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   spacer: {
-    height: 20,
+    height: 80,
   },
   modalOverlay: {
     position: 'absolute',
@@ -480,5 +477,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-export { GoalsScreen };

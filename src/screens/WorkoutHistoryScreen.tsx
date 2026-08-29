@@ -1,28 +1,78 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { WorkoutRepository } from '../database/repositories';
+import type { WorkoutSession } from '../models';
 
 interface WorkoutHistoryScreenProps {
   navigation: any;
 }
 
-const mockHistory = [
-  { id: 1, date: '2026-08-28', name: 'Full Body A', duration: 45, exercises: 5, sets: 15, volume: 1870, notes: 'Felt good' },
-  { id: 2, date: '2026-08-26', name: 'Full Body B', duration: 42, exercises: 5, sets: 15, volume: 1740, notes: 'A bit tired' },
-  { id: 3, date: '2026-08-24', name: 'Full Body A', duration: 48, exercises: 5, sets: 15, volume: 1920, notes: 'Strong workout' },
-  { id: 4, date: '2026-08-21', name: 'Cardio & Core', duration: 30, exercises: 3, sets: 7, volume: 850, notes: 'Light day' },
-  { id: 5, date: '2026-08-20', name: 'Full Body C', duration: 40, exercises: 5, sets: 12, volume: 1450, notes: 'First week back' },
-];
+interface SessionSummary {
+  id: number;
+  date: string;
+  name: string;
+  duration: number;
+  exercises: number;
+  sets: number;
+  volume: number;
+  notes: string;
+}
 
 const formatDuration = (min: number) => `${min} min`;
 const formatDate = (date: string) => {
-  const d = new Date(date);
+  const d = new Date(date + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScreenProps) {
-  const renderItem = ({ item }: { item: typeof mockHistory[0] }) => (
-    <TouchableOpacity style={styles.card}>
+  const [history, setHistory] = useState<SessionSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const workoutRepo = new WorkoutRepository();
+      const sessions = await workoutRepo.getSessions(50);
+      const summaries: SessionSummary[] = [];
+
+      for (const session of sessions) {
+        const exercises = await workoutRepo.getExercisesBySession(session.id!);
+        let sets = 0;
+        let volume = 0;
+        for (const exercise of exercises) {
+          const exerciseSets = await workoutRepo.getSetsByExercise(exercise.id!);
+          sets += exerciseSets.length;
+          volume += exerciseSets.reduce((acc, s) => acc + s.weight_kg * s.reps, 0);
+        }
+        summaries.push({
+          id: session.id!,
+          date: session.date,
+          name: session.program_name || 'Workout',
+          duration: session.duration_minutes || 0,
+          exercises: exercises.length,
+          sets,
+          volume: Math.round(volume),
+          notes: session.notes,
+        });
+      }
+
+      setHistory(summaries);
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+    const unsubscribe = navigation.addListener('focus', loadHistory);
+    return unsubscribe;
+  }, [navigation, loadHistory]);
+
+  const renderItem = ({ item }: { item: SessionSummary }) => (
+    <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Workout', { sessionId: item.id })}>
       <View style={styles.cardHeader}>
         <View>
           <Text style={styles.dateText}>{formatDate(item.date)}</Text>
@@ -30,7 +80,7 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
         </View>
         <View style={styles.durationBadge}>
           <Icon name="schedule" size={14} color="#6B7280" />
-          <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
+          <Text style={styles.durationText}>{item.duration > 0 ? formatDuration(item.duration) : '—'}</Text>
         </View>
       </View>
 
@@ -49,9 +99,9 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
         </View>
       </View>
 
-      {item.notes && (
+      {item.notes ? (
         <Text style={styles.cardNotes}>{item.notes}</Text>
-      )}
+      ) : null}
     </TouchableOpacity>
   );
 
@@ -65,15 +115,27 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
         <View style={{ width: 24 }} />
       </View>
 
-      <Text style={styles.subtitle}>{mockHistory.length} workouts logged</Text>
-
-      <FlatList
-        data={mockHistory}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <ActivityIndicator style={styles.loading} size="large" color="#2563EB" />
+      ) : (
+        <>
+          <Text style={styles.subtitle}>{history.length} workouts logged</Text>
+          <FlatList
+            data={history}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Icon name="fitness-center" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyTitle}>No workouts yet</Text>
+                <Text style={styles.emptySubtitle}>Start a program to log your first workout</Text>
+              </View>
+            }
+          />
+        </>
+      )}
 
       <View style={styles.spacer} />
     </View>
@@ -167,6 +229,25 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+  },
+  loading: {
+    marginTop: 48,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'center',
   },
   spacer: {
     height: 20,
