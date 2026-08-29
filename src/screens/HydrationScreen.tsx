@@ -1,0 +1,355 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
+interface HydrationScreenProps {
+  navigation: any;
+}
+
+export default function HydrationScreen({ navigation }: HydrationScreenProps) {
+  const [currentLiters, setCurrentLiters] = useState(1.5);
+  const [targetLiters, setTargetLiters] = useState(2.5);
+  const [entries, setEntries] = useState<{ time: string; amount: number; id: number }[]>([]);
+
+  useEffect(() => {
+    // Load existing entries for today
+    setEntries([
+      { time: '08:30', amount: 0.5, id: 1 },
+      { time: '10:15', amount: 0.5, id: 2 },
+      { time: '12:00', amount: 0.25, id: 3 },
+      { time: '14:30', amount: 0.25, id: 4 },
+    ]);
+  }, []);
+
+  const addWater = (amount: number) => {
+    const entry = {
+      time: new Date().toTimeString().slice(0, 5),
+      amount: amount / 1000,
+      id: Date.now(),
+    };
+    setEntries([...entries, entry]);
+    setCurrentLiters(currentLiters + entry.amount);
+  };
+
+  const removeEntry = (id: number) => {
+    const entry = entries.find(e => e.id === id);
+    if (entry) {
+      setEntries(entries.filter(e => e.id !== id));
+      setCurrentLiters(Math.max(0, currentLiters - entry.amount));
+    }
+  };
+
+  const progress = Math.min(100, (currentLiters / targetLiters) * 100);
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={24} color="#1F2937" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Hydration</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      {/* Water Progress */}
+      <View style={styles.progressCard}>
+        <View style={styles.waterIconContainer}>
+          <Text style={styles.waterIcon}>💧</Text>
+        </View>
+
+        <Text style={styles.bigNumber}>{currentLiters.toFixed(1)}</Text>
+        <Text style={styles.bigUnit}>/ {targetLiters.toFixed(1)} L</Text>
+
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          </View>
+        </View>
+
+        <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+      </View>
+
+      {/* Quick Add Buttons */}
+      <View style={styles.quickAddSection}>
+        <Text style={styles.sectionTitle}>QUICK ADD</Text>
+        <View style={styles.quickButtons}>
+          {[
+            { amount: 250, label: '250ml' },
+            { amount: 500, label: '500ml' },
+            { amount: 750, label: '750ml' },
+            { amount: 1000, label: '1L' },
+          ].map((btn) => (
+            <TouchableOpacity
+              key={btn.amount}
+              style={styles.quickButton}
+              onPress={() => addWater(btn.amount)}
+            >
+              <Text style={styles.quickButtonText}>{btn.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Custom Amount */}
+      <View style={styles.customSection}>
+        <Text style={styles.sectionTitle}>CUSTOM AMOUNT</Text>
+        <View style={styles.customInputRow}>
+          <TextInput
+            style={styles.customInput}
+            value={customAmount}
+            onChangeText={(text) => setCustomAmount(text)}
+            keyboardType="decimal-pad"
+            placeholder="0"
+          />
+          <Text style={styles.customUnit}>ml</Text>
+          <TouchableOpacity style={styles.addCustomButton} onPress={addCustom}>
+            <Text style={styles.addCustomText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Today's Log */}
+      <View style={styles.logSection}>
+        <Text style={styles.sectionTitle}>TODAY'S LOG</Text>
+        {entries.length === 0 ? (
+          <View style={styles.emptyLog}>
+            <Icon name="water" size={32} color="#D1D5DB" />
+            <Text style={styles.emptyLogText}>No water logged today</Text>
+          </View>
+        ) : (
+          <View style={styles.logEntries}>
+            {entries.map((entry) => (
+              <View key={entry.id} style={styles.logEntry}>
+                <View style={styles.logEntryInfo}>
+                  <Text style={styles.logEntryTime}>{entry.time}</Text>
+                  <Text style={styles.logEntryAmount}>{entry.amount >= 1 ? `${entry.amount.toFixed(1)} L` : `${(entry.amount * 1000).toFixed(0)} ml`}</Text>
+                </View>
+                <TouchableOpacity onPress={() => removeEntry(entry.id)} style={styles.logEntryRemove}>
+                  <Icon name="close" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.spacer} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  progressCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  waterIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  waterIcon: {
+    fontSize: 40,
+  },
+  bigNumber: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  bigUnit: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: -4,
+    marginBottom: 16,
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 12,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: 'linear-gradient(to right, #3B82F6, #06B6D4)',
+    borderRadius: 6,
+  },
+  progressPercent: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  quickAddSection: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  quickButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  quickButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  quickButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  customSection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  customInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  customInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    padding: 0,
+  },
+  customUnit: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+  addCustomButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginLeft: 12,
+  },
+  addCustomText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  logSection: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+  },
+  emptyLog: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 24,
+    gap: 8,
+  },
+  emptyLogText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  logEntries: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  logEntry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  logEntryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  logEntryTime: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  logEntryAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  logEntryRemove: {
+    padding: 8,
+  },
+  spacer: {
+    height: 20,
+  },
+});
+
+const [customAmount, setCustomAmount] = React.useState('');
+const addCustom = () => {
+  const ml = parseFloat(customAmount);
+  if (ml && ml > 0 && ml <= 2000) {
+    addWater(ml);
+    setCustomAmount('');
+  }
+};
+
+export { HydrationScreen };

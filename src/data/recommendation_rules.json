@@ -1,0 +1,169 @@
+{
+  "recommendation_rules": [
+    {
+      "id": "missing_workout_today",
+      "name": "Planned Workout Not Started",
+      "category": "workout",
+      "condition_type": "today_workout_not_started",
+      "message": "You have a workout planned for today. Start it to stay on track.",
+      "priority": "medium",
+      "icon": "🏋️"
+    },
+    {
+      "id": "workout_incomplete_week",
+      "name": "Incomplete Weekly Workouts",
+      "category": "workout",
+      "condition_type": "planned_workouts_not_completed_week",
+      "message": "You have planned workouts this week that are not yet completed. Finish them to stay consistent.",
+      "priority": "medium",
+      "icon": "📅"
+    },
+    {
+      "id": "no_workout_yet_today",
+      "name": "No Workout Today",
+      "category": "workout",
+      "condition_type": "no_workout_today",
+      "message": "You haven't completed a workout today yet. Consider doing one to build consistency.",
+      "priority": "low",
+      "icon": "💡"
+    },
+    {
+      "id": "previous_performance_hint",
+      "name": "Previous Performance Available",
+      "category": "workout",
+      "condition_type": "previous_performance_available",
+      "message_template": "Your previous {{exercise_name}} performance was: {{last_sets}}. Try to reproduce or slightly improve it today.",
+      "priority": "low",
+      "icon": "📊",
+      "requires_exercise_context": true
+    },
+    {
+      "id": "hydration_below_target",
+      "name": "Hydration Below Target",
+      "category": "hydration",
+      "condition_type": "hydration_progress_less_than",
+      "condition_value": 60,
+      "message_template": "You've logged {{current_l}} of water today. Your target is {{target_l}} L. Try to drink more.",
+      "priority": "medium",
+      "icon": "💧"
+    },
+    {
+      "id": "hydration_met",
+      "name": "Hydration Target Met",
+      "category": "hydration",
+      "condition_type": "hydration_progress_greater_than",
+      "condition_value": 100,
+      "message": "Great job! You've reached your daily hydration target.",
+      "priority": "low",
+      "icon": "✅"
+    },
+    {
+      "id": "nutrition_not_logged_lunch",
+      "name": "Lunch Not Logged",
+      "category": "nutrition",
+      "condition_type": "meal_not_logged_today",
+      "condition_value": "lunch",
+      "message": "You haven't logged your lunch today. Don't forget to track your meals.",
+      "priority": "medium",
+      "icon": "🍽️"
+    },
+    {
+      "id": "nutrition_not_logged_dinner",
+      "name": "Dinner Not Logged",
+      "category": "nutrition",
+      "condition_type": "meal_not_logged_today",
+      "condition_value": "dinner",
+      "message": "You haven't logged your dinner today. Track it to stay on top of your nutrition.",
+      "priority": "medium",
+      "icon": "🍽️"
+    },
+    {
+      "id": "nutrition_calories_low",
+      "name": "Calories Below Target",
+      "category": "nutrition",
+      "condition_type": "calories_progress_less_than",
+      "condition_value": 80,
+      "message_template": "You've consumed {{current_kcal}} kcal today. Your target is {{target_kcal}} kcal. Make sure you're eating enough to support your goals.",
+      "priority": "low",
+      "icon": "🍎"
+    },
+    {
+      "id": "nutrition_calories_high",
+      "name": "Calories Above Target",
+      "category": "nutrition",
+      "condition_type": "calories_progress_greater_than",
+      "condition_value": 120,
+      "message_template": "You've exceeded your calorie target today ({{current_kcal}} / {{target_kcal}} kcal). Consider lighter meals tomorrow.",
+      "priority": "medium",
+      "icon": "⚠️"
+    },
+    {
+      "id": "protein_low",
+      "name": "Protein Intake Below Target",
+      "category": "nutrition",
+      "condition_type": "macro_progress_less_than",
+      "condition_value": 80,
+      "macro_type": "protein",
+      "message_template": "You've consumed {{current_g}} g of protein today. Your target is {{target_g}} g. Consider adding a protein-rich snack.",
+      "priority": "medium",
+      "icon": "🥩"
+    },
+    {
+      "id": "no_nutrition_logged_today",
+      "name": "No Meals Logged Today",
+      "category": "nutrition",
+      "condition_type": "no_nutrition_logged_today",
+      "message": "You haven't logged any meals today. Start tracking your nutrition to see your daily totals.",
+      "priority": "low",
+      "icon": "📋"
+    },
+    {
+      "id": "consistency_streak_info",
+      "name": "Weekly Consistency",
+      "category": "consistency",
+      "condition_type": "always",
+      "message_template": "You logged workouts on {{workout_days}} days this week. Consistency is key to long-term progress.",
+      "priority": "low",
+      "icon": "📊"
+    },
+    {
+      "id": "measurement_due",
+      "name": "Measurement Reminder",
+      "category": "measurements",
+      "condition_type": "days_since_last_measurement_greater_than",
+      "condition_value": 14,
+      "message": "It's been over two weeks since your last body measurement. Regular tracking helps you see your progress.",
+      "priority": "low",
+      "icon": "📏"
+    },
+    {
+      "id": "no_goals_set",
+      "name": "No Goals Set",
+      "category": "goals",
+      "condition_type": "no_active_goals",
+      "message": "You haven't set any goals yet. Goals help you stay focused and motivated. Create your first goal today.",
+      "priority": "medium",
+      "icon": "🎯"
+    },
+    {
+      "id": "goal_progress_low",
+      "name": "Goal Progress Check",
+      "category": "goals",
+      "condition_type": "goal_progress_less_than",
+      "condition_value": 30,
+      "message_template": "Your goal '{{goal_name}}' is {{progress}}% complete. You're making progress — keep going!",
+      "priority": "low",
+      "icon": "🎯",
+      "requires_goal_context": true
+    },
+    {
+      "id": "daily_journal_not_started",
+      "name": "Daily Journal Available",
+      "category": "journal",
+      "condition_type": "journal_not_started_today",
+      "message": "You haven't written in your daily journal yet. Take a moment to reflect on your day.",
+      "priority": "low",
+      "icon": "📝"
+    }
+  ]
+}

@@ -1,0 +1,576 @@
+[
+  {
+    "id": "beginner_full_body",
+    "name": "Beginner Full Body",
+    "description": "A balanced full-body program for those starting their fitness journey. Focus on fundamental movements with manageable volume.",
+    "duration_weeks": 8,
+    "days_per_week": 3,
+    "goal": "general_fitness",
+    "days": [
+      {
+        "day": 1,
+        "name": "Full Body A",
+        "exercises": [
+          {
+            "exercise_id": "barbell_bench_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "lat_pulldown",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "overhead_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "squat",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 120
+          },
+          {
+            "exercise_id": "plank",
+            "sets": 3,
+            "reps": 1,
+            "rest_seconds": 30,
+            "duration_seconds": 30
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "name": "Full Body B",
+        "exercises": [
+          {
+            "exercise_id": "dumbbell_chest_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "seated_row",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "dumbbell_shoulder_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "leg_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "crunch",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 30
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "name": "Full Body C",
+        "exercises": [
+          {
+            "exercise_id": "incline_dumbbell_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "dumbbell_row",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "lateral_raise",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "lunges",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "leg_raise",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "strength_fundamentals",
+    "name": "Strength Fundamentals",
+    "description": "A program focused on building foundational strength through compound movements. Suitable for those with some training experience.",
+    "duration_weeks": 12,
+    "days_per_week": 3,
+    "goal": "strength",
+    "days": [
+      {
+        "day": 1,
+        "name": "Strength Day A",
+        "exercises": [
+          {
+            "exercise_id": "barbell_bench_press",
+            "sets": 4,
+            "reps": 6,
+            "rest_seconds": 120
+          },
+          {
+            "exercise_id": "deadlift",
+            "sets": 4,
+            "reps": 5,
+            "rest_seconds": 180
+          },
+          {
+            "exercise_id": "overhead_press",
+            "sets": 3,
+            "reps": 8,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "plank",
+            "sets": 3,
+            "reps": 1,
+            "rest_seconds": 30,
+            "duration_seconds": 45
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "name": "Strength Day B",
+        "exercises": [
+          {
+            "exercise_id": "squat",
+            "sets": 4,
+            "reps": 6,
+            "rest_seconds": 120
+          },
+          {
+            "exercise_id": "pull_up",
+            "sets": 3,
+            "reps": 6,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "barbell_bench_press",
+            "sets": 3,
+            "reps": 8,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "crunch",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 30
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "name": "Strength Day C",
+        "exercises": [
+          {
+            "exercise_id": "deadlift",
+            "sets": 3,
+            "reps": 5,
+            "rest_seconds": 120
+          },
+          {
+            "exercise_id": "lat_pulldown",
+            "sets": 4,
+            "reps": 8,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "squat",
+            "sets": 3,
+            "reps": 8,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "russian_twist",
+            "sets": 3,
+            "reps": 20,
+            "rest_seconds": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hypertrophy_upper_lower",
+    "name": "Hypertrophy Upper/Lower",
+    "description": "A split program targeting muscle growth with separate upper and lower body days. Ideal for intermediate lifters.",
+    "duration_weeks": 10,
+    "days_per_week": 4,
+    "goal": "muscle_growth",
+    "days": [
+      {
+        "day": 1,
+        "name": "Upper Body A",
+        "exercises": [
+          {
+            "exercise_id": "barbell_bench_press",
+            "sets": 4,
+            "reps": 8,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "lat_pulldown",
+            "sets": 4,
+            "reps": 8,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "overhead_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "bicep_curl",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "tricep_pushdown",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "name": "Lower Body A",
+        "exercises": [
+          {
+            "exercise_id": "squat",
+            "sets": 4,
+            "reps": 8,
+            "rest_seconds": 120
+          },
+          {
+            "exercise_id": "leg_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "lunges",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "leg_curl",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "plank",
+            "sets": 3,
+            "reps": 1,
+            "rest_seconds": 30,
+            "duration_seconds": 45
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "name": "Upper Body B",
+        "exercises": [
+          {
+            "exercise_id": "incline_dumbbell_press",
+            "sets": 4,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "seated_row",
+            "sets": 4,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "dumbbell_shoulder_press",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 90
+          },
+          {
+            "exercise_id": "hammer_curl",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "skull_crusher",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 60
+          }
+        ]
+      },
+      {
+        "day": 4,
+        "name": "Lower Body B",
+        "exercises": [
+          {
+            "exercise_id": "deadlift",
+            "sets": 3,
+            "reps": 6,
+            "rest_seconds": 120
+          },
+          {
+            "exercise_id": "leg_extension",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "lunges",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "leg_curl",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "leg_raise",
+            "sets": 3,
+            "reps": 12,
+            "rest_seconds": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "weight_loss_beginner",
+    "name": "Weight Loss Starter",
+    "description": "A gentle introduction to regular exercise focusing on consistency and gradual progression. Designed for those returning to fitness.",
+    "duration_weeks": 6,
+    "days_per_week": 3,
+    "goal": "weight_loss",
+    "days": [
+      {
+        "day": 1,
+        "name": "Full Body Lite A",
+        "exercises": [
+          {
+            "exercise_id": "dumbbell_chest_press",
+            "sets": 2,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "lat_pulldown",
+            "sets": 2,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "leg_press",
+            "sets": 2,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "crunch",
+            "sets": 2,
+            "reps": 15,
+            "rest_seconds": 30
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "name": "Cardio & Core",
+        "exercises": [
+          {
+            "exercise_id": "treadmill_walk",
+            "sets": 1,
+            "reps": 1,
+            "rest_seconds": 0,
+            "duration_minutes": 20
+          },
+          {
+            "exercise_id": "plank",
+            "sets": 3,
+            "reps": 1,
+            "rest_seconds": 30,
+            "duration_seconds": 20
+          },
+          {
+            "exercise_id": "russian_twist",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 30
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "name": "Full Body Lite B",
+        "exercises": [
+          {
+            "exercise_id": "incline_dumbbell_press",
+            "sets": 2,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "seated_row",
+            "sets": 2,
+            "reps": 12,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "lunges",
+            "sets": 2,
+            "reps": 10,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "leg_raise",
+            "sets": 2,
+            "reps": 10,
+            "rest_seconds": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "home_workout_bodyweight",
+    "name": "Home Bodyweight Circuit",
+    "description": "No-equipment workout you can do at home. Great for maintaining fitness when you can't access a gym.",
+    "duration_weeks": 4,
+    "days_per_week": 3,
+    "goal": "general_fitness",
+    "days": [
+      {
+        "day": 1,
+        "name": "Full Body Circuit",
+        "exercises": [
+          {
+            "exercise_id": "push_ups",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "bodyweight_squats",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "lunges",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "plank",
+            "sets": 3,
+            "reps": 1,
+            "rest_seconds": 30,
+            "duration_seconds": 30
+          },
+          {
+            "exercise_id": "crunch",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 30
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "name": "Active Recovery",
+        "exercises": [
+          {
+            "exercise_id": "treadmill_walk",
+            "sets": 1,
+            "reps": 1,
+            "rest_seconds": 0,
+            "duration_minutes": 30
+          },
+          {
+            "exercise_id": "stretching",
+            "sets": 1,
+            "reps": 1,
+            "rest_seconds": 0,
+            "duration_minutes": 10
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "name": "Full Body Circuit B",
+        "exercises": [
+          {
+            "exercise_id": "burpees",
+            "sets": 3,
+            "reps": 8,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "bodyweight_squats",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "glute_bridges",
+            "sets": 3,
+            "reps": 15,
+            "rest_seconds": 60
+          },
+          {
+            "exercise_id": "leg_raise",
+            "sets": 3,
+            "reps": 10,
+            "rest_seconds": 30
+          },
+          {
+            "exercise_id": "russian_twist",
+            "sets": 3,
+            "reps": 20,
+            "rest_seconds": 30
+          }
+        ]
+      }
+    ]
+  }
+]

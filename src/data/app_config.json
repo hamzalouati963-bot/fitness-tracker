@@ -1,0 +1,31 @@
+{
+  "profile": {
+    "name": "",
+    "age": null,
+    "sex": "male",
+    "height_cm": 182,
+    "current_weight_kg": 116.2,
+    "activity_level": "sedentary",
+    "fitness_goal": "weight_loss",
+    "preferred_workout_days": "mon_wed_fri"
+  },
+  "nutrition_targets": {
+    "calories_kcal": 2200,
+    "protein_g": 150,
+    "carbohydrates_g": 250,
+    "fat_g": 70,
+    "hydration_liters": 2.5
+  },
+  "notification_settings": {
+    "workout_reminder": { "enabled": true, "time": "08:00" },
+    "hydration_reminder": { "enabled": true, "interval_minutes": 60 },
+    "meal_logging_reminder": { "enabled": true, "time": "12:00" },
+    "measurement_reminder": { "enabled": false, "interval_days": 7 },
+    "weekly_review_reminder": { "enabled": true, "day": "sunday", "time": "20:00" }
+  },
+  "appearance": {
+    "theme": "system",
+    "unit_system": "metric"
+  },
+  "last_weekly_review_date": null
+}

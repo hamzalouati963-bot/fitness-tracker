@@ -1,0 +1,492 @@
+[
+  {
+    "id": "chicken_breast",
+    "name": "Chicken Breast",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 165,
+    "protein_g": 31,
+    "carbs_g": 0,
+    "fat_g": 3.6
+  },
+  {
+    "id": "rice_white",
+    "name": "White Rice (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 130,
+    "protein_g": 2.7,
+    "carbs_g": 28,
+    "fat_g": 0.3
+  },
+  {
+    "id": "rice_brown",
+    "name": "Brown Rice (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 112,
+    "protein_g": 2.6,
+    "carbs_g": 23,
+    "fat_g": 0.9
+  },
+  {
+    "id": "olive_oil",
+    "name": "Olive Oil",
+    "serving_size": 15,
+    "unit": "ml",
+    "calories": 120,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 14
+  },
+  {
+    "id": "egg",
+    "name": "Egg (whole)",
+    "serving_size": 50,
+    "unit": "g",
+    "calories": 155,
+    "protein_g": 13,
+    "carbs_g": 1.1,
+    "fat_g": 11
+  },
+  {
+    "id": "egg_white",
+    "name": "Egg White",
+    "serving_size": 33,
+    "unit": "g",
+    "calories": 52,
+    "protein_g": 11,
+    "carbs_g": 0.7,
+    "fat_g": 0.2
+  },
+  {
+    "id": "banana",
+    "name": "Banana",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 89,
+    "protein_g": 1.1,
+    "carbs_g": 23,
+    "fat_g": 0.3
+  },
+  {
+    "id": "apple",
+    "name": "Apple",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 52,
+    "protein_g": 0.3,
+    "carbs_g": 14,
+    "fat_g": 0.2
+  },
+  {
+    "id": "orange",
+    "name": "Orange",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 47,
+    "protein_g": 0.9,
+    "carbs_g": 12,
+    "fat_g": 0.1
+  },
+  {
+    "id": "broccoli",
+    "name": "Broccoli (steamed)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 35,
+    "protein_g": 2.4,
+    "carbs_g": 7,
+    "fat_g": 0.4
+  },
+  {
+    "id": "spinach",
+    "name": "Spinach (raw)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 23,
+    "protein_g": 2.9,
+    "carbs_g": 3.6,
+    "fat_g": 0.4
+  },
+  {
+    "id": "tomato",
+    "name": "Tomato",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 18,
+    "protein_g": 0.9,
+    "carbs_g": 3.9,
+    "fat_g": 0.2
+  },
+  {
+    "id": "potato",
+    "name": "Potato (boiled)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 87,
+    "protein_g": 1.9,
+    "carbs_g": 20,
+    "fat_g": 0.1
+  },
+  {
+    "id": "sweet_potato",
+    "name": "Sweet Potato (baked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 90,
+    "protein_g": 2.0,
+    "carbs_g": 21,
+    "fat_g": 0.1
+  },
+  {
+    "id": "salmon",
+    "name": "Salmon (grilled)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 208,
+    "protein_g": 20,
+    "carbs_g": 0,
+    "fat_g": 13
+  },
+  {
+    "id": "tuna_canned",
+    "name": "Tuna (canned in water)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 116,
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 0.8
+  },
+  {
+    "id": "beef_lean",
+    "name": "Lean Beef (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 250,
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 15
+  },
+  {
+    "id": "pork_lean",
+    "name": "Lean Pork (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 240,
+    "protein_g": 27,
+    "carbs_g": 0,
+    "fat_g": 14
+  },
+  {
+    "id": "whole_wheat_bread",
+    "name": "Whole Wheat Bread",
+    "serving_size": 30,
+    "unit": "g",
+    "calories": 75,
+    "protein_g": 3,
+    "carbs_g": 14,
+    "fat_g": 1
+  },
+  {
+    "id": "oatmeal",
+    "name": "Oatmeal (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 68,
+    "protein_g": 2.4,
+    "carbs_g": 12,
+    "fat_g": 1.4
+  },
+  {
+    "id": "greek_yogurt",
+    "name": "Greek Yogurt (plain)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 59,
+    "protein_g": 10,
+    "carbs_g": 3.6,
+    "fat_g": 0.7
+  },
+  {
+    "id": "milk_skim",
+    "name": "Skim Milk",
+    "serving_size": 100,
+    "unit": "ml",
+    "calories": 34,
+    "protein_g": 3.4,
+    "carbs_g": 5,
+    "fat_g": 0.1
+  },
+  {
+    "id": "almonds",
+    "name": "Almonds",
+    "serving_size": 28,
+    "unit": "g",
+    "calories": 164,
+    "protein_g": 6,
+    "carbs_g": 6,
+    "fat_g": 14
+  },
+  {
+    "id": "peanut_butter",
+    "name": "Peanut Butter",
+    "serving_size": 16,
+    "unit": "g",
+    "calories": 95,
+    "protein_g": 3.5,
+    "carbs_g": 3.5,
+    "fat_g": 8
+  },
+  {
+    "id": "honey",
+    "name": "Honey",
+    "serving_size": 21,
+    "unit": "g",
+    "calories": 64,
+    "protein_g": 0.1,
+    "carbs_g": 17,
+    "fat_g": 0
+  },
+  {
+    "id": "dark_chocolate",
+    "name": "Dark Chocolate (70%)",
+    "serving_size": 28,
+    "unit": "g",
+    "calories": 170,
+    "protein_g": 2,
+    "carbs_g": 13,
+    "fat_g": 11
+  },
+  {
+    "id": "protein_powder_whey",
+    "name": "Whey Protein",
+    "serving_size": 30,
+    "unit": "g",
+    "calories": 120,
+    "protein_g": 24,
+    "carbs_g": 3,
+    "fat_g": 1
+  },
+  {
+    "id": "pasta_whole_wheat",
+    "name": "Whole Wheat Pasta (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 125,
+    "protein_g": 5,
+    "carbs_g": 25,
+    "fat_g": 1
+  },
+  {
+    "id": "quinoa",
+    "name": "Quinoa (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 120,
+    "protein_g": 4.4,
+    "carbs_g": 21,
+    "fat_g": 1.9
+  },
+  {
+    "id": "avocado",
+    "name": "Avocado",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 160,
+    "protein_g": 2,
+    "carbs_g": 9,
+    "fat_g": 15
+  },
+  {
+    "id": "cottage_cheese",
+    "name": "Cottage Cheese",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 98,
+    "protein_g": 11,
+    "carbs_g": 3.4,
+    "fat_g": 4.3
+  },
+  {
+    "id": "turkey_breast",
+    "name": "Turkey Breast (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 135,
+    "protein_g": 30,
+    "carbs_g": 0,
+    "fat_g": 1
+  },
+  {
+    "id": "shrimp",
+    "name": "Shrimp (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 99,
+    "protein_g": 24,
+    "carbs_g": 0.2,
+    "fat_g": 0.3
+  },
+  {
+    "id": "cod",
+    "name": "Cod (baked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 105,
+    "protein_g": 23,
+    "carbs_g": 0,
+    "fat_g": 0.9
+  },
+  {
+    "id": "tofu",
+    "name": "Tofu (firm)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 76,
+    "protein_g": 8,
+    "carbs_g": 1.9,
+    "fat_g": 4.8
+  },
+  {
+    "id": "beans_black",
+    "name": "Black Beans (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 132,
+    "protein_g": 8.9,
+    "carbs_g": 24,
+    "fat_g": 0.5
+  },
+  {
+    "id": "lentils",
+    "name": "Lentils (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 116,
+    "protein_g": 9,
+    "carbs_g": 20,
+    "fat_g": 0.4
+  },
+  {
+    "id": "greek_salad",
+    "name": "Greek Salad",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 50,
+    "protein_g": 1.5,
+    "carbs_g": 3,
+    "fat_g": 4
+  },
+  {
+    "id": "sandwich_turkey",
+    "name": "Turkey Sandwich",
+    "serving_size": 200,
+    "unit": "g",
+    "calories": 350,
+    "protein_g": 25,
+    "carbs_g": 40,
+    "fat_g": 10
+  },
+  {
+    "id": "pizza_slice",
+    "name": "Pizza (1 slice, pepperoni)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 266,
+    "protein_g": 11,
+    "carbs_g": 33,
+    "fat_g": 11
+  },
+  {
+    "id": "burger_patty",
+    "name": "Hamburger Patty (cooked)",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 254,
+    "protein_g": 17,
+    "carbs_g": 0,
+    "fat_g": 20
+  },
+  {
+    "id": "french_fries",
+    "name": "French Fries",
+    "serving_size": 100,
+    "unit": "g",
+    "calories": 312,
+    "protein_g": 3.4,
+    "carbs_g": 41,
+    "fat_g": 15
+  },
+  {
+    "id": "orange_juice",
+    "name": "Orange Juice",
+    "serving_size": 100,
+    "unit": "ml",
+    "calories": 45,
+    "protein_g": 0.7,
+    "carbs_g": 10,
+    "fat_g": 0.2
+  },
+  {
+    "id": "coffee_black",
+    "name": "Coffee (black, no sugar)",
+    "serving_size": 240,
+    "unit": "ml",
+    "calories": 2,
+    "protein_g": 0.3,
+    "carbs_g": 0,
+    "fat_g": 0
+  },
+  {
+    "id": "water",
+    "name": "Water",
+    "serving_size": 100,
+    "unit": "ml",
+    "calories": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 0
+  },
+  {
+    "id": "soda",
+    "name": "Soft Drink (Cola)",
+    "serving_size": 100,
+    "unit": "ml",
+    "calories": 42,
+    "protein_g": 0,
+    "carbs_g": 10.6,
+    "fat_g": 0
+  },
+  {
+    "id": "protein_bar",
+    "name": "Protein Bar",
+    "serving_size": 40,
+    "unit": "g",
+    "calories": 180,
+    "protein_g": 20,
+    "carbs_g": 15,
+    "fat_g": 5
+  },
+  {
+    "id": "trail_mix",
+    "name": "Trail Mix",
+    "serving_size": 30,
+    "unit": "g",
+    "calories": 170,
+    "protein_g": 5,
+    "carbs_g": 15,
+    "fat_g": 12
+  },
+  {
+    "id": "dried_fruits_mixed",
+    "name": "Mixed Dried Fruits",
+    "serving_size": 30,
+    "unit": "g",
+    "calories": 85,
+    "protein_g": 0.5,
+    "carbs_g": 20,
+    "fat_g": 0.2
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "fitness-tracker",
+    "slug": "fitness-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "extra": {
+      "eas": {
+        "projectId": "566931de-e49a-453e-b735-6c57f1312ae5"
+      }
+    }
+  }
+}
