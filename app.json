@@ -9,6 +9,9 @@
       "eas": {
         "projectId": "566931de-e49a-453e-b735-6c57f1312ae5"
       }
+    },
+    "android": {
+      "package": "com.hamzalouati.fitnesstracker"
     }
   }
 }

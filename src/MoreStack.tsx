@@ -3,18 +3,18 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-import GoalsScreen from '../screens/GoalsScreen';
-import CalculatorsScreen from '../screens/CalculatorsScreen';
-import JournalScreen from '../screens/JournalScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import HydrationScreen from '../screens/HydrationScreen';
-import MeasurementsScreen from '../screens/MeasurementsScreen';
-import ExerciseLibraryScreen from '../screens/ExerciseLibraryScreen';
-import WorkoutHistoryScreen from '../screens/WorkoutHistoryScreen';
-import FoodSearchScreen from '../screens/FoodSearchScreen';
-import ProgramsScreen from '../screens/ProgramsScreen';
-import RecommendationScreen from '../screens/RecommendationScreen';
-import WeeklyReviewScreen from '../screens/WeeklyReviewScreen';
+import GoalsScreen from './screens/GoalsScreen';
+import CalculatorsScreen from './screens/CalculatorsScreen';
+import JournalScreen from './screens/JournalScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import HydrationScreen from './screens/HydrationScreen';
+import MeasurementsScreen from './screens/MeasurementsScreen';
+import ExerciseLibraryScreen from './screens/ExerciseLibraryScreen';
+import WorkoutHistoryScreen from './screens/WorkoutHistoryScreen';
+import FoodSearchScreen from './screens/FoodSearchScreen';
+import ProgramsScreen from './screens/ProgramsScreen';
+import RecommendationScreen from './screens/RecommendationScreen';
+import WeeklyReviewScreen from './screens/WeeklyReviewScreen';
 
 const Stack = createStackNavigator();
 
