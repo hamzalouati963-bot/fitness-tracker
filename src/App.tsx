@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 
@@ -21,18 +22,22 @@ export default function App() {
       try {
         await getDatabase();
         setReady(true);
-      } catch (e) {
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        const stack = e?.stack || '';
         console.error('DB init failed', e);
-        setError('Database initialization failed');
+        setError(`Database initialization failed\n\n${msg}\n\n${stack}`.slice(0, 1000));
       }
     })();
   }, []);
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.center}>
+        <Icon name="error-outline" size={48} color="#EF4444" />
+        <Text style={styles.errorTitle}>Erreur de base de données</Text>
+        <Text style={styles.errorText} selectable>{error}</Text>
+      </ScrollView>
     );
   }
 
@@ -104,8 +109,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
   },
-  errorText: {
-    fontSize: 14,
+  errorTitle: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#EF4444',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 11,
+    color: '#6B7280',
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });
