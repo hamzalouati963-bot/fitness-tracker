@@ -15,6 +15,9 @@ import FoodSearchScreen from './screens/FoodSearchScreen';
 import ProgramsScreen from './screens/ProgramsScreen';
 import RecommendationScreen from './screens/RecommendationScreen';
 import WeeklyReviewScreen from './screens/WeeklyReviewScreen';
+import CustomWorkoutsScreen from './screens/CustomWorkoutsScreen';
+import CreateCustomWorkoutScreen from './screens/CreateCustomWorkoutScreen';
+import ExercisePickerScreen from './screens/ExercisePickerScreen';
 
 const Stack = createStackNavigator();
 
@@ -27,6 +30,7 @@ const menuItems = [
   { id: 'measurements', label: 'Measurements', icon: 'measure', screen: 'Measurements', color: '#D97706' },
   { id: 'exercises', label: 'Exercises', icon: 'fitness-center', screen: 'Exercises', color: '#DC2626' },
   { id: 'programs', label: 'Programs', icon: 'sports', screen: 'Programs', color: '#0891B2' },
+  { id: 'custom_workouts', label: 'My Workouts', icon: 'create', screen: 'CustomWorkouts', color: '#8B5CF6' },
   { id: 'history', label: 'Workout History', icon: 'history', screen: 'WorkoutHistory', color: '#65A30D' },
   { id: 'foods', label: 'Food Database', icon: 'restaurant', screen: 'FoodSearch', color: '#CA8A04' },
   { id: 'suggestions', label: 'Suggestions', icon: 'lightbulb', screen: 'Recommendations', color: '#F59E0B' },
@@ -70,6 +74,9 @@ export default function MoreStack() {
       <Stack.Screen name="FoodSearch" component={FoodSearchScreen} />
       <Stack.Screen name="Recommendations" component={RecommendationScreen} />
       <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
+      <Stack.Screen name="CustomWorkouts" component={CustomWorkoutsScreen} />
+      <Stack.Screen name="CreateCustomWorkout" component={CreateCustomWorkoutScreen} />
+      <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
     </Stack.Navigator>
   );
 }
@@ -106,7 +113,7 @@ function MoreHomeScreen({ navigation }: { navigation: any }) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>PLANNING</Text>
         <View style={styles.menuGrid}>
-          {menuItems.filter(item => ['programs', 'exercises', 'journal', 'history'].includes(item.id)).map((item) => (
+          {menuItems.filter(item => ['programs', 'custom_workouts', 'exercises', 'journal', 'history'].includes(item.id)).map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuCard}

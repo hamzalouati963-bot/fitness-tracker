@@ -193,3 +193,24 @@ export interface CustomFood {
   fat_g: number;
   created_at: string;
 }
+
+export interface CustomWorkout {
+  id?: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomWorkoutExercise {
+  id?: number;
+  custom_workout_id: number;
+  exercise_id: string;
+  exercise_name: string;
+  order_index: number;
+  sets: number;
+  reps: number;
+  weight_kg: number;
+  rest_seconds: number;
+  notes: string;
+}

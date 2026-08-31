@@ -175,6 +175,26 @@ async function runMigrations() {
     `CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(date)`,
     `CREATE INDEX IF NOT EXISTS idx_hydration_entries_date ON hydration_entries(date)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_foods_name ON custom_foods(name)`,
+    `CREATE TABLE IF NOT EXISTS custom_workouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS custom_workout_exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      custom_workout_id INTEGER NOT NULL,
+      exercise_id TEXT NOT NULL,
+      exercise_name TEXT NOT NULL,
+      order_index INTEGER NOT NULL,
+      sets INTEGER DEFAULT 3,
+      reps INTEGER DEFAULT 10,
+      weight_kg REAL DEFAULT 0,
+      rest_seconds INTEGER DEFAULT 90,
+      notes TEXT DEFAULT '',
+      FOREIGN KEY (custom_workout_id) REFERENCES custom_workouts(id) ON DELETE CASCADE
+    )`,
   ];
 
   await database.withTransactionAsync(async () => {

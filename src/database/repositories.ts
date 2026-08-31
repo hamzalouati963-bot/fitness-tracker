@@ -717,6 +717,118 @@ export class SettingsRepository {
   }
 }
 
+export class CustomWorkoutRepository {
+  async getAll(): Promise<import('../models').CustomWorkout[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<import('../models').CustomWorkout>(
+      'SELECT * FROM custom_workouts ORDER BY updated_at DESC'
+    );
+  }
+
+  async getById(id: number): Promise<import('../models').CustomWorkout | null> {
+    const db = await getDatabase();
+    return db.getFirstAsync<import('../models').CustomWorkout>(
+      'SELECT * FROM custom_workouts WHERE id = ?',
+      [id]
+    );
+  }
+
+  async create(workout: Omit<import('../models').CustomWorkout, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
+    const db = await getDatabase();
+    const ts = now();
+    const result = await db.runAsync(
+      'INSERT INTO custom_workouts (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      [workout.name, workout.description, ts, ts]
+    );
+    return result.lastInsertRowId;
+  }
+
+  async update(id: number, updates: Partial<Pick<import('../models').CustomWorkout, 'name' | 'description'>>): Promise<void> {
+    const db = await getDatabase();
+    const ts = now();
+    const fields: string[] = [];
+    const values: (string | number)[] = [];
+    if (updates.name !== undefined) { fields.push('name'); values.push(updates.name); }
+    if (updates.description !== undefined) { fields.push('description'); values.push(updates.description); }
+    fields.push('updated_at');
+    values.push(ts);
+    values.push(id);
+    await db.runAsync(
+      `UPDATE custom_workouts SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+
+  async delete(id: number): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('DELETE FROM custom_workouts WHERE id = ?', [id]);
+  }
+
+  async getExercises(workoutId: number): Promise<import('../models').CustomWorkoutExercise[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<import('../models').CustomWorkoutExercise>(
+      'SELECT * FROM custom_workout_exercises WHERE custom_workout_id = ? ORDER BY order_index',
+      [workoutId]
+    );
+  }
+
+  async addExercise(exercise: Omit<import('../models').CustomWorkoutExercise, 'id'>): Promise<number> {
+    const db = await getDatabase();
+    const result = await db.runAsync(
+      `INSERT INTO custom_workout_exercises
+       (custom_workout_id, exercise_id, exercise_name, order_index, sets, reps, weight_kg, rest_seconds, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [exercise.custom_workout_id, exercise.exercise_id, exercise.exercise_name,
+       exercise.order_index, exercise.sets, exercise.reps, exercise.weight_kg,
+       exercise.rest_seconds, exercise.notes]
+    );
+    return result.lastInsertRowId;
+  }
+
+  async updateExercise(id: number, updates: Partial<Omit<import('../models').CustomWorkoutExercise, 'id' | 'custom_workout_id'>>): Promise<void> {
+    const db = await getDatabase();
+    const fields: string[] = [];
+    const values: (string | number)[] = [];
+    if (updates.exercise_id !== undefined) { fields.push('exercise_id'); values.push(updates.exercise_id); }
+    if (updates.exercise_name !== undefined) { fields.push('exercise_name'); values.push(updates.exercise_name); }
+    if (updates.order_index !== undefined) { fields.push('order_index'); values.push(updates.order_index); }
+    if (updates.sets !== undefined) { fields.push('sets'); values.push(updates.sets); }
+    if (updates.reps !== undefined) { fields.push('reps'); values.push(updates.reps); }
+    if (updates.weight_kg !== undefined) { fields.push('weight_kg'); values.push(updates.weight_kg); }
+    if (updates.rest_seconds !== undefined) { fields.push('rest_seconds'); values.push(updates.rest_seconds); }
+    if (updates.notes !== undefined) { fields.push('notes'); values.push(updates.notes); }
+    if (fields.length > 0) {
+      values.push(id);
+      await db.runAsync(
+        `UPDATE custom_workout_exercises SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`,
+        values
+      );
+    }
+  }
+
+  async deleteExercise(id: number): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('DELETE FROM custom_workout_exercises WHERE id = ?', [id]);
+  }
+
+  async deleteAllExercises(workoutId: number): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('DELETE FROM custom_workout_exercises WHERE custom_workout_id = ?', [workoutId]);
+  }
+
+  async reorderExercises(workoutId: number, exerciseIds: number[]): Promise<void> {
+    const db = await getDatabase();
+    await db.withTransactionAsync(async () => {
+      for (let i = 0; i < exerciseIds.length; i++) {
+        await db.runAsync(
+          'UPDATE custom_workout_exercises SET order_index = ? WHERE id = ? AND custom_workout_id = ?',
+          [i, exerciseIds[i], workoutId]
+        );
+      }
+    });
+  }
+}
+
 function now(): string {
   return new Date().toISOString();
 }
