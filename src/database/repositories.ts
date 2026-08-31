@@ -11,7 +11,11 @@ import type {
   HydrationEntry,
   CustomFood,
   Profile,
-  NutritionTargets
+  NutritionTargets,
+  UserProfile,
+  UserGoal,
+  FitnessLevel,
+  Equipment
 } from '../models';
 
 export class WorkoutRepository {
@@ -761,7 +765,10 @@ export class CustomWorkoutRepository {
 
   async delete(id: number): Promise<void> {
     const db = await getDatabase();
-    await db.runAsync('DELETE FROM custom_workouts WHERE id = ?', [id]);
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM custom_workout_exercises WHERE custom_workout_id = ?', [id]);
+      await db.runAsync('DELETE FROM custom_workouts WHERE id = ?', [id]);
+    });
   }
 
   async getExercises(workoutId: number): Promise<import('../models').CustomWorkoutExercise[]> {
@@ -826,6 +833,53 @@ export class CustomWorkoutRepository {
         );
       }
     });
+  }
+}
+
+export class UserProfileRepository {
+  async get(): Promise<UserProfile | null> {
+    const db = await getDatabase();
+    return db.getFirstAsync<UserProfile>('SELECT * FROM user_profile LIMIT 1');
+  }
+
+  async create(profile: Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
+    const db = await getDatabase();
+    const ts = now();
+    const result = await db.runAsync(
+      `INSERT INTO user_profile (first_name, last_name, age, gender, height_cm, weight_kg, goal, fitness_level, training_days, session_duration, equipment, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [profile.first_name, profile.last_name, profile.age, profile.gender,
+       profile.height_cm, profile.weight_kg, profile.goal, profile.fitness_level,
+       profile.training_days, profile.session_duration, profile.equipment, ts, ts]
+    );
+    return result.lastInsertRowId;
+  }
+
+  async update(id: number, updates: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>): Promise<void> {
+    const db = await getDatabase();
+    const ts = now();
+    const fields: string[] = [];
+    const values: (string | number | null)[] = [];
+    if (updates.first_name !== undefined) { fields.push('first_name'); values.push(updates.first_name); }
+    if (updates.last_name !== undefined) { fields.push('last_name'); values.push(updates.last_name); }
+    if (updates.age !== undefined) { fields.push('age'); values.push(updates.age); }
+    if (updates.gender !== undefined) { fields.push('gender'); values.push(updates.gender); }
+    if (updates.height_cm !== undefined) { fields.push('height_cm'); values.push(updates.height_cm); }
+    if (updates.weight_kg !== undefined) { fields.push('weight_kg'); values.push(updates.weight_kg); }
+    if (updates.goal !== undefined) { fields.push('goal'); values.push(updates.goal); }
+    if (updates.fitness_level !== undefined) { fields.push('fitness_level'); values.push(updates.fitness_level); }
+    if (updates.training_days !== undefined) { fields.push('training_days'); values.push(updates.training_days); }
+    if (updates.session_duration !== undefined) { fields.push('session_duration'); values.push(updates.session_duration); }
+    if (updates.equipment !== undefined) { fields.push('equipment'); values.push(updates.equipment); }
+    if (fields.length > 0) {
+      fields.push('updated_at');
+      values.push(ts);
+      values.push(id);
+      await db.runAsync(
+        `UPDATE user_profile SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`,
+        values
+      );
+    }
   }
 }
 

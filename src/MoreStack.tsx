@@ -18,6 +18,7 @@ import WeeklyReviewScreen from './screens/WeeklyReviewScreen';
 import CustomWorkoutsScreen from './screens/CustomWorkoutsScreen';
 import CreateCustomWorkoutScreen from './screens/CreateCustomWorkoutScreen';
 import ExercisePickerScreen from './screens/ExercisePickerScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 const Stack = createStackNavigator();
 
@@ -29,6 +30,7 @@ const menuItems = [
   { id: 'hydration', label: 'Hydration', icon: 'water', screen: 'Hydration', color: '#06B6D4' },
   { id: 'measurements', label: 'Measurements', icon: 'measure', screen: 'Measurements', color: '#D97706' },
   { id: 'exercises', label: 'Exercises', icon: 'fitness-center', screen: 'Exercises', color: '#DC2626' },
+  { id: 'profile', label: 'Profile', icon: 'person', screen: 'Profile', color: '#8B5CF6' },
   { id: 'programs', label: 'Programs', icon: 'sports', screen: 'Programs', color: '#0891B2' },
   { id: 'custom_workouts', label: 'My Workouts', icon: 'create', screen: 'CustomWorkouts', color: '#8B5CF6' },
   { id: 'history', label: 'Workout History', icon: 'history', screen: 'WorkoutHistory', color: '#65A30D' },
@@ -74,6 +76,7 @@ export default function MoreStack() {
       <Stack.Screen name="FoodSearch" component={FoodSearchScreen} />
       <Stack.Screen name="Recommendations" component={RecommendationScreen} />
       <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="CustomWorkouts" component={CustomWorkoutsScreen} />
       <Stack.Screen name="CreateCustomWorkout" component={CreateCustomWorkoutScreen} />
       <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
@@ -95,7 +98,7 @@ function MoreHomeScreen({ navigation }: { navigation: any }) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>TRACKING</Text>
         <View style={styles.menuGrid}>
-          {menuItems.filter(item => ['goals', 'measurements', 'hydration'].includes(item.id)).map((item) => (
+          {menuItems.filter(item => ['profile', 'goals', 'measurements', 'hydration'].includes(item.id)).map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuCard}

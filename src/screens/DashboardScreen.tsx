@@ -1,14 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository, NutritionRepository, HydrationRepository, GoalRepository, MeasurementRepository, SettingsRepository } from '../database/repositories';
+import { WorkoutRepository, NutritionRepository, HydrationRepository, GoalRepository, MeasurementRepository, SettingsRepository, UserProfileRepository } from '../database/repositories';
 import { RecommendationService } from '../services';
+import type { UserProfile, UserGoal } from '../models';
 
 interface DashboardScreenProps {
   navigation: any;
 }
 
+const GOAL_LABELS: Record<UserGoal, string> = {
+  lose_weight: 'Lose Weight',
+  build_muscle: 'Build Muscle',
+  maintain_weight: 'Maintain Weight',
+  improve_fitness: 'Improve Fitness',
+  increase_strength: 'Increase Strength',
+  improve_endurance: 'Improve Endurance',
+};
+
 export default function DashboardScreen({ navigation }: DashboardScreenProps) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [todaysWorkout, setTodaysWorkout] = useState<any>(null);
   const [goalProgress, setGoalProgress] = useState<number | null>(null);
   const [hydration, setHydration] = useState({ current: 0, target: 2.5 });
@@ -16,6 +27,14 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [weeklyCount, setWeeklyCount] = useState(0);
+
+  const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -25,7 +44,11 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       const goalRepo = new GoalRepository();
       const measurementRepo = new MeasurementRepository();
       const settingsRepo = new SettingsRepository();
+      const profileRepo = new UserProfileRepository();
       const today = new Date().toISOString().split('T')[0];
+
+      const userProfile = await profileRepo.get();
+      setProfile(userProfile);
 
       const session = await workoutRepo.getTodaysSession();
       setTodaysWorkout(session);
@@ -41,12 +64,25 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       setHydration({ current: loggedWater, target: targets.hydration_liters });
       setNutrition({ calories: Math.round(totals.calories), target: targets.calories_kcal });
       if (latestMeasurement?.weight_kg) setCurrentWeight(latestMeasurement.weight_kg);
+      else if (userProfile?.weight_kg) setCurrentWeight(userProfile.weight_kg);
 
       if (activeGoals.length > 0) {
         const goal = activeGoals[0];
         const progress = await goalRepo.getGoalProgress(goal.id!);
         setGoalProgress(progress);
       }
+
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date();
+      weekEnd.setDate(weekEnd.getDate() + (6 - weekEnd.getDay()));
+      weekEnd.setHours(23, 59, 59, 999);
+      const wCount = await workoutRepo.getWeeklySessionCount(
+        weekStart.toISOString().split('T')[0],
+        weekEnd.toISOString().split('T')[0]
+      );
+      setWeeklyCount(wCount);
 
       const recommendationService = new RecommendationService(
         workoutRepo, nutritionRepo, measurementRepo, goalRepo,
@@ -75,8 +111,13 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
     }>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Good morning 👋</Text>
+        <Text style={styles.greeting}>{getGreeting()}, {profile?.first_name || 'there'} 👋</Text>
         <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+        {profile && (
+          <TouchableOpacity style={styles.goalBadge} onPress={() => navigation.navigate('More', { screen: 'Profile' })}>
+            <Text style={styles.goalBadgeText}>🎯 {GOAL_LABELS[profile.goal]}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -101,7 +142,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         ) : (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('More', { screen: 'Programs' })}
+            onPress={() => navigation.navigate('More', { screen: 'CustomWorkouts' })}
           >
             <View style={styles.cardRow}>
               <View>
@@ -110,7 +151,10 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
               </View>
               <Icon name="add-circle" size={24} color="#2563EB" />
             </View>
-            <Text style={styles.cardHint}>Start a workout to begin tracking</Text>
+            <Text style={styles.cardHint}>Create your workout to start training</Text>
+            <TouchableOpacity style={styles.startButton}>
+              <Text style={styles.startButtonText}>Create Workout</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
       </View>
@@ -146,7 +190,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>GOALS</Text>
+        <Text style={styles.sectionTitle}>PROGRESS</Text>
 
         <TouchableOpacity
           style={styles.goalCard}
@@ -174,6 +218,19 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{weeklyCount}</Text>
+            <Text style={styles.statLabel}>Workouts this week</Text>
+          </View>
+          {profile && (
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{profile.training_days || 3}</Text>
+              <Text style={styles.statLabel}>Target days/week</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {suggestions.length > 0 && (
@@ -211,6 +268,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
+  },
+  goalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  goalBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   section: {
     marginBottom: 24,
@@ -328,6 +401,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'center',
   },
   suggestionItem: {
     flexDirection: 'row',

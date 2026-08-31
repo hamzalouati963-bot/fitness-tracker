@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -9,18 +9,24 @@ import WorkoutScreen from './screens/WorkoutScreen';
 import NutritionScreen from './screens/NutritionScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import MoreStack from './MoreStack';
+import OnboardingScreen from './screens/OnboardingScreen';
 import { getDatabase } from './database';
+import { UserProfileRepository } from './database/repositories';
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
         await getDatabase();
+        const repo = new UserProfileRepository();
+        const profile = await repo.get();
+        setHasProfile(!!profile);
         setReady(true);
       } catch (e: any) {
         const msg = e?.message || String(e);
@@ -29,6 +35,10 @@ export default function App() {
         setError(`Database initialization failed\n\n${msg}\n\n${stack}`.slice(0, 1000));
       }
     })();
+  }, []);
+
+  const handleOnboardingDone = useCallback(() => {
+    setHasProfile(true);
   }, []);
 
   if (error) {
@@ -48,6 +58,10 @@ export default function App() {
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
+  }
+
+  if (hasProfile === false) {
+    return <OnboardingScreen onDone={handleOnboardingDone} />;
   }
 
   return (

@@ -7,6 +7,7 @@ let db: SQLite.SQLiteDatabase | null = null;
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (db) return db;
   db = await SQLite.openDatabaseAsync(DB_NAME);
+  await db.execAsync('PRAGMA foreign_keys = ON');
   await runMigrations();
   return db;
 }
@@ -194,6 +195,22 @@ async function runMigrations() {
       rest_seconds INTEGER DEFAULT 90,
       notes TEXT DEFAULT '',
       FOREIGN KEY (custom_workout_id) REFERENCES custom_workouts(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_profile (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT NOT NULL,
+      last_name TEXT DEFAULT '',
+      age INTEGER,
+      gender TEXT DEFAULT 'male',
+      height_cm REAL,
+      weight_kg REAL,
+      goal TEXT NOT NULL DEFAULT 'improve_fitness',
+      fitness_level TEXT NOT NULL DEFAULT 'beginner',
+      training_days INTEGER DEFAULT 3,
+      session_duration INTEGER DEFAULT 45,
+      equipment TEXT DEFAULT 'no_equipment',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     )`,
   ];
 

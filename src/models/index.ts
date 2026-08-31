@@ -214,3 +214,24 @@ export interface CustomWorkoutExercise {
   rest_seconds: number;
   notes: string;
 }
+
+export type UserGoal = 'lose_weight' | 'build_muscle' | 'maintain_weight' | 'improve_fitness' | 'increase_strength' | 'improve_endurance';
+export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
+export type Equipment = 'no_equipment' | 'dumbbells' | 'barbell' | 'machines' | 'resistance_bands' | 'full_gym';
+
+export interface UserProfile {
+  id?: number;
+  first_name: string;
+  last_name: string;
+  age: number | null;
+  gender: string;
+  height_cm: number | null;
+  weight_kg: number | null;
+  goal: UserGoal;
+  fitness_level: FitnessLevel;
+  training_days: number | null;
+  session_duration: number | null;
+  equipment: Equipment;
+  created_at: string;
+  updated_at: string;
+}

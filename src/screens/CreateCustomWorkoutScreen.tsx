@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { CustomWorkoutRepository } from '../database/repositories';
+import { CustomWorkoutRepository, UserProfileRepository } from '../database/repositories';
 import { exercises as exercisesData, todayISO, timeNow } from '../services';
 import { WorkoutRepository } from '../database/repositories';
-import type { CustomWorkoutExercise } from '../models';
+import type { CustomWorkoutExercise, UserProfile, UserGoal, FitnessLevel } from '../models';
 
 interface CreateCustomWorkoutScreenProps {
   navigation: any;
@@ -34,6 +34,17 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
   const [showExerciseEditor, setShowExerciseEditor] = useState(false);
 
   const repo = new CustomWorkoutRepository();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const p = await new UserProfileRepository().get();
+        setProfile(p);
+      } catch (e) { /* ignore */ }
+    };
+    loadProfile();
+  }, []);
 
   useEffect(() => {
     if (isEditing) {
@@ -62,27 +73,7 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
     })));
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('params', (params: any) => {
-      if (params?.selectedExercise) {
-        const ex = params.selectedExercise;
-        setEditingExercise({
-          tempId: Date.now().toString(),
-          exercise_id: ex.id,
-          exercise_name: ex.name,
-          order_index: exercises.length,
-          sets: 3,
-          reps: 10,
-          weight_kg: 0,
-          rest_seconds: ex.default_rest_seconds || 90,
-          notes: '',
-        });
-        setShowExerciseEditor(true);
-        navigation.setParams({ selectedExercise: undefined });
-      }
-    });
-    return unsubscribe;
-  }, [navigation, exercises.length]);
+
 
   const handleAddExercise = () => {
     navigation.navigate('ExercisePicker', {
@@ -230,6 +221,23 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
     }
   };
 
+  const getRecommendation = (p: UserProfile): string => {
+    switch (p.goal) {
+      case 'build_muscle':
+        return 'Recommended for your goal: 3-4 sets, 8-12 reps, 60-90s rest';
+      case 'lose_weight':
+        return 'Recommended for your goal: 3 sets, 12-15 reps, 30-45s rest';
+      case 'increase_strength':
+        return 'Recommended for your goal: 4-5 sets, 3-6 reps, 120-180s rest';
+      case 'improve_endurance':
+        return 'Recommended for your goal: 2-3 sets, 15-20 reps, 30s rest';
+      case 'improve_fitness':
+        return 'Recommended for your goal: 3 sets, 10-15 reps, 60s rest';
+      default:
+        return 'Recommended: 3 sets, 10-12 reps, 60-90s rest';
+    }
+  };
+
   if (showExerciseEditor && editingExercise) {
     return (
       <ScrollView style={styles.container}>
@@ -243,6 +251,15 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
 
         <View style={styles.editorCard}>
           <Text style={styles.editorExerciseName}>{editingExercise.exercise_name}</Text>
+
+          {profile && (
+            <View style={styles.recommendationBanner}>
+              <Icon name="auto-fix-high" size={16} color="#2563EB" />
+              <Text style={styles.recommendationText}>
+                {getRecommendation(profile)}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.stepperRow}>
             <Text style={styles.stepperLabel}>Sets</Text>
@@ -655,6 +672,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     minHeight: 60,
     textAlignVertical: 'top',
+  },
+  recommendationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    gap: 8,
+  },
+  recommendationText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '500',
   },
   confirmBtn: {
     backgroundColor: '#2563EB',
