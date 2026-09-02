@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { HydrationRepository, SettingsRepository } from '../database/repositories';
+import { hydrationRepo, settingsRepo } from '../database/repositories';
 import { todayISO, timeNow } from '../services';
 
 interface HydrationScreenProps {
@@ -16,8 +16,6 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
 
   const loadData = useCallback(async () => {
     try {
-      const hydrationRepo = new HydrationRepository();
-      const settingsRepo = new SettingsRepository();
       const today = todayISO();
       const [total, todayEntries, targets] = await Promise.all([
         hydrationRepo.getTodaysHydration(today),
@@ -38,7 +36,6 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
 
   const addWater = async (amount: number) => {
     try {
-      const hydrationRepo = new HydrationRepository();
       await hydrationRepo.addEntry({
         date: todayISO(),
         time: timeNow(),
@@ -53,7 +50,6 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
 
   const removeEntry = async (id: number) => {
     try {
-      const hydrationRepo = new HydrationRepository();
       await hydrationRepo.deleteEntry(id);
       await loadData();
     } catch (e) {

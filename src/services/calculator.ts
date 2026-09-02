@@ -42,7 +42,7 @@ export class CalculatorService {
       'yoga': 2.5,
     };
     const met = metValues[activityType] || 4.0;
-    return Math.round((met * 3.5 * weightKg * durationMinutes) / (200 * 60));
+    return Math.round((met * 3.5 * weightKg * durationMinutes) / 200);
   }
 
   getHydrationTarget(weightKg: number, activityLevel: string): number {

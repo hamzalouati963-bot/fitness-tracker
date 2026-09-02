@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository, NutritionRepository, MeasurementRepository, DailyLogRepository } from '../database/repositories';
+import { workoutRepo, nutritionRepo, measurementRepo, dailyLogRepo } from '../database/repositories';
 import { ProgressService, dateDaysAgo } from '../services';
 
 interface ProgressScreenProps {
@@ -9,6 +9,7 @@ interface ProgressScreenProps {
 }
 
 export default function ProgressScreen({ navigation }: ProgressScreenProps) {
+  const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [weightData, setWeightData] = useState<{ date: string; weight: number }[]>([]);
   const [bodyFatData, setBodyFatData] = useState<{ date: string; bodyFat: number }[]>([]);
@@ -19,11 +20,12 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
 
   const loadData = useCallback(async () => {
     try {
+      setLoading(true);
       const progressService = new ProgressService(
-        new WorkoutRepository(),
-        new NutritionRepository(),
-        new MeasurementRepository(),
-        new DailyLogRepository()
+        workoutRepo,
+        nutritionRepo,
+        measurementRepo,
+        dailyLogRepo
       );
 
       const days = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : selectedPeriod === '3m' ? 90 : selectedPeriod === '6m' ? 180 : selectedPeriod === '1y' ? 365 : 3650;
@@ -42,7 +44,6 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
       setWorkoutsPerWeek(weeks.map((w, i) => ({ week: `Week ${i + 1}`, count: w.count })));
       setAvgCalories(Math.round(avgCal));
 
-      const nutritionRepo = new NutritionRepository();
       let p = 0, c = 0, f = 0, count = 0;
       for (let i = 0; i < 7; i++) {
         const totals = await nutritionRepo.getDailyNutrition(dateDaysAgo(i));
@@ -62,6 +63,8 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
       }
     } catch (e) {
       console.error('Failed to load progress:', e);
+    } finally {
+      setLoading(false);
     }
   }, [selectedPeriod]);
 
@@ -74,6 +77,14 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
   const formatWeight = (w: number) => `${w.toFixed(1)} kg`;
   const formatBodyFat = (bf: number) => `${bf.toFixed(1)}%`;
   const formatMuscle = (m: number) => `${m.toFixed(1)} kg`;
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -144,7 +155,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
                 </Text>
               </>
             ) : (
-              <Text style={styles.noDataText}>No body fat data yet</Text>
+              <Text style={styles.noDataText}>No body fat data yet{'\n'}<Text style={styles.noDataHint}>Log measurements to see body fat trends</Text></Text>
             )}
           </View>
         </View>
@@ -166,7 +177,7 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
                 </Text>
               </>
             ) : (
-              <Text style={styles.noDataText}>No muscle mass data yet</Text>
+              <Text style={styles.noDataText}>No muscle mass data yet{'\n'}<Text style={styles.noDataHint}>Log measurements to track muscle mass changes</Text></Text>
             )}
           </View>
         </View>
@@ -175,43 +186,57 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
       {/* Workouts Per Week Chart */}
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>🏋️ Workouts Per Week</Text>
-        <View style={styles.workoutsContainer}>
-          {workoutsPerWeek.map((week, i) => (
-            <View key={i} style={styles.workoutBar}>
-              <Text style={styles.weekLabel}>{week.week}</Text>
-              <View style={styles.workoutBarContainer}>
-                <View style={[styles.workoutBarFill, { width: `${(week.count / 7) * 100}%` }]} />
+        {workoutsPerWeek.length > 0 ? (
+          <View style={styles.workoutsContainer}>
+            {workoutsPerWeek.map((week, i) => (
+              <View key={i} style={styles.workoutBar}>
+                <Text style={styles.weekLabel}>{week.week}</Text>
+                <View style={styles.workoutBarContainer}>
+                  <View style={[styles.workoutBarFill, { width: `${(week.count / 7) * 100}%` }]} />
+                </View>
+                <Text style={styles.workoutCount}>{week.count}</Text>
               </View>
-              <Text style={styles.workoutCount}>{week.count}</Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptySection}>
+            <Text style={styles.noDataText}>No workouts logged yet</Text>
+            <Text style={styles.noDataHint}>Log workouts to see your weekly activity here</Text>
+          </View>
+        )}
       </View>
 
       {/* Nutrition Summary */}
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>🍽️ Average Daily Calories</Text>
-        <View style={styles.avgCaloriesContainer}>
-          <Text style={styles.avgCaloriesValue}>{avgCalories > 0 ? avgCalories.toLocaleString() : '—'}</Text>
-          <Text style={styles.avgCaloriesUnit}>kcal / day (30-day average)</Text>
-          <View style={styles.avgCaloriesBreakdown}>
-            <View style={styles.avgCaloriesRow}>
-              <Text style={styles.macroLabel}>Protein</Text>
-              <Text style={styles.macroValue}>{avgMacros.protein > 0 ? `${avgMacros.protein}g` : '—'}</Text>
-              <Text style={styles.macroCals}>{avgMacros.protein > 0 ? `${avgMacros.protein * 4} kcal` : ''}</Text>
-            </View>
-            <View style={styles.avgCaloriesRow}>
-              <Text style={styles.macroLabel}>Carbs</Text>
-              <Text style={styles.macroValue}>{avgMacros.carbs > 0 ? `${avgMacros.carbs}g` : '—'}</Text>
-              <Text style={styles.macroCals}>{avgMacros.carbs > 0 ? `${avgMacros.carbs * 4} kcal` : ''}</Text>
-            </View>
-            <View style={styles.avgCaloriesRow}>
-              <Text style={styles.macroLabel}>Fat</Text>
-              <Text style={styles.macroValue}>{avgMacros.fat > 0 ? `${avgMacros.fat}g` : '—'}</Text>
-              <Text style={styles.macroCals}>{avgMacros.fat > 0 ? `${avgMacros.fat * 9} kcal` : ''}</Text>
+        {avgCalories > 0 ? (
+          <View style={styles.avgCaloriesContainer}>
+            <Text style={styles.avgCaloriesValue}>{avgCalories.toLocaleString()}</Text>
+            <Text style={styles.avgCaloriesUnit}>kcal / day (30-day average)</Text>
+            <View style={styles.avgCaloriesBreakdown}>
+              <View style={styles.avgCaloriesRow}>
+                <Text style={styles.macroLabel}>Protein</Text>
+                <Text style={styles.macroValue}>{avgMacros.protein > 0 ? `${avgMacros.protein}g` : '—'}</Text>
+                <Text style={styles.macroCals}>{avgMacros.protein > 0 ? `${avgMacros.protein * 4} kcal` : ''}</Text>
+              </View>
+              <View style={styles.avgCaloriesRow}>
+                <Text style={styles.macroLabel}>Carbs</Text>
+                <Text style={styles.macroValue}>{avgMacros.carbs > 0 ? `${avgMacros.carbs}g` : '—'}</Text>
+                <Text style={styles.macroCals}>{avgMacros.carbs > 0 ? `${avgMacros.carbs * 4} kcal` : ''}</Text>
+              </View>
+              <View style={styles.avgCaloriesRow}>
+                <Text style={styles.macroLabel}>Fat</Text>
+                <Text style={styles.macroValue}>{avgMacros.fat > 0 ? `${avgMacros.fat}g` : '—'}</Text>
+                <Text style={styles.macroCals}>{avgMacros.fat > 0 ? `${avgMacros.fat * 9} kcal` : ''}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.emptySection}>
+            <Text style={styles.noDataText}>No nutrition data yet</Text>
+            <Text style={styles.noDataHint}>Log meals to see your calorie and macro averages</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.spacer} />
@@ -303,6 +328,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  noDataHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  emptySection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chartChange: {
     fontSize: 12,

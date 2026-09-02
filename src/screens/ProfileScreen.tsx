@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { UserProfileRepository } from '../database/repositories';
+import { userProfileRepo } from '../database/repositories';
 import type { UserProfile, UserGoal, FitnessLevel, Equipment } from '../models';
 
 interface ProfileScreenProps {
@@ -36,6 +36,7 @@ const DURATIONS = [15, 30, 45, 60, 90, 120];
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -49,11 +50,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [sessionDuration, setSessionDuration] = useState(45);
   const [equipment, setEquipment] = useState<Equipment>('no_equipment');
 
-  const repo = new UserProfileRepository();
-
   const loadProfile = useCallback(async () => {
     try {
-      const p = await repo.get();
+      const p = await userProfileRepo.get();
       if (p) {
         setProfile(p);
         setFirstName(p.first_name);
@@ -70,6 +69,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       }
     } catch (e) {
       console.error('Failed to load profile:', e);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -85,7 +86,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     if (!profile?.id) return;
 
     try {
-      await repo.update(profile.id, {
+      await userProfileRepo.update(profile.id, {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         age: age ? Number(age) : null,
@@ -110,6 +111,27 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const getGoalLabel = (v: UserGoal) => GOALS.find(g => g.value === v)?.label || v;
   const getLevelLabel = (v: FitnessLevel) => LEVELS.find(l => l.value === v)?.label || v;
   const getEquipmentLabel = (v: Equipment) => EQUIPMENT_OPTIONS.find(e => e.value === v)?.label || v;
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={styles.center}>
+        <Icon name="person-outline" size={48} color="#9CA3AF" />
+        <Text style={styles.emptyTitle}>Profile not found</Text>
+        <Text style={styles.emptyText}>Please complete onboarding to set up your profile.</Text>
+        <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.emptyBtnText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (editing) {
     return (
@@ -317,4 +339,9 @@ const styles = StyleSheet.create({
   durationBtnText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
   durationBtnTextActive: { color: '#FFFFFF' },
   spacer: { height: 40 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151', marginTop: 16 },
+  emptyText: { fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center', paddingHorizontal: 40 },
+  emptyBtn: { marginTop: 20, backgroundColor: '#2563EB', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
+  emptyBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 });

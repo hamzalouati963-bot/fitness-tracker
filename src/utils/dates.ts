@@ -29,3 +29,21 @@ export function dateDaysAgoLocal(days: number): string {
   d.setDate(d.getDate() - days);
   return formatDateLocal(d);
 }
+
+/** Début de semaine (lundi) au format YYYY-MM-DD. */
+export function getStartOfWeekLocal(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diff);
+  return formatDateLocal(d);
+}
+
+/** Fin de semaine (dimanche) au format YYYY-MM-DD. */
+export function getEndOfWeekLocal(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? 0 : 7 - day;
+  d.setDate(d.getDate() + diff);
+  return formatDateLocal(d);
+}

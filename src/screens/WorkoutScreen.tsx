@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository, DailyLogRepository } from '../database/repositories';
+import { workoutRepo, dailyLogRepo } from '../database/repositories';
 import type { WorkoutExercise, WorkoutSet } from '../models';
 import { timeNow, todayLocal } from '../services';
 
@@ -22,8 +22,6 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
   const [loading, setLoading] = useState(!!sessionId);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const workoutRepo = new WorkoutRepository();
 
   const loadSession = useCallback(async () => {
     if (!sessionId) {
@@ -147,7 +145,6 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
 
       // Marquer la seance comme completee dans le journal du jour (stats weekly)
       try {
-        const dailyLogRepo = new DailyLogRepository();
         const logId = await dailyLogRepo.getOrCreateLog(todayLocal());
         await dailyLogRepo.updateLog(logId, { workout_completed: true });
       } catch (e) {

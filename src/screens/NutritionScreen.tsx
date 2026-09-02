@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { NutritionRepository, SettingsRepository } from '../database/repositories';
+import { nutritionRepo, settingsRepo } from '../database/repositories';
 import { todayISO } from '../services';
 import type { Meal, MealItem } from '../models';
 import {
@@ -35,8 +35,6 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
 
   const loadNutritionData = useCallback(async () => {
     try {
-      const nutritionRepo = new NutritionRepository();
-      const settingsRepo = new SettingsRepository();
       const today = todayISO();
 
       const [mealRows, totals, targetRows] = await Promise.all([

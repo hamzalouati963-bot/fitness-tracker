@@ -105,21 +105,6 @@ export interface MealItem {
   created_at: string;
 }
 
-export interface FoodEntry {
-  id?: number;
-  date: string;
-  food_id: string;
-  food_name: string;
-  quantity: number;
-  unit: string;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  meal_type?: MealType;
-  created_at: string;
-}
-
 export interface BodyMeasurement {
   id?: number;
   date: string;

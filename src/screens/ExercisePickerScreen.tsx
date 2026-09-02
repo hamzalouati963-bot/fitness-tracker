@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { exercises, type Exercise } from '../services';
-import { UserProfileRepository } from '../database/repositories';
+import { userProfileRepo } from '../database/repositories';
 import type { UserProfile, Equipment } from '../models';
 
 interface ExercisePickerScreenProps {
@@ -27,7 +27,7 @@ export default function ExercisePickerScreen({ navigation, route }: ExercisePick
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const p = await new UserProfileRepository().get();
+        const p = await userProfileRepo.get();
         if (p) setUserEquipment(p.equipment);
       } catch (e) { /* ignore */ }
     };

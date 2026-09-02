@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator }
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { RecommendationService } from '../services';
 import {
-  WorkoutRepository,
-  NutritionRepository,
-  MeasurementRepository,
-  GoalRepository,
-  DailyLogRepository,
-  HydrationRepository,
-  SettingsRepository,
+  workoutRepo,
+  nutritionRepo,
+  measurementRepo,
+  goalRepo,
+  dailyLogRepo,
+  hydrationRepo,
+  settingsRepo,
 } from '../database/repositories';
 import type { Recommendation } from '../models';
 
@@ -25,13 +25,13 @@ export default function RecommendationScreen({ navigation }: RecommendationScree
     setLoading(true);
     try {
       const service = new RecommendationService(
-        new WorkoutRepository(),
-        new NutritionRepository(),
-        new MeasurementRepository(),
-        new GoalRepository(),
-        new DailyLogRepository(),
-        new HydrationRepository(),
-        new SettingsRepository()
+        workoutRepo,
+        nutritionRepo,
+        measurementRepo,
+        goalRepo,
+        dailyLogRepo,
+        hydrationRepo,
+        settingsRepo
       );
       const recs = await service.generateRecommendations();
       setRecommendations(recs);

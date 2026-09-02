@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { CustomWorkoutRepository, UserProfileRepository } from '../database/repositories';
+import { customWorkoutRepo, userProfileRepo, workoutRepo } from '../database/repositories';
 import { exercises as exercisesData, todayISO, timeNow } from '../services';
-import { WorkoutRepository } from '../database/repositories';
 import type { CustomWorkoutExercise, UserProfile, UserGoal, FitnessLevel } from '../models';
 
 interface CreateCustomWorkoutScreenProps {
@@ -33,13 +32,12 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
   const [editingExercise, setEditingExercise] = useState<ExerciseDraft | null>(null);
   const [showExerciseEditor, setShowExerciseEditor] = useState(false);
 
-  const repo = new CustomWorkoutRepository();
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const p = await new UserProfileRepository().get();
+        const p = await userProfileRepo.get();
         setProfile(p);
       } catch (e) { /* ignore */ }
     };
@@ -54,12 +52,12 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
 
   const loadWorkout = async () => {
     if (!workoutId) return;
-    const workout = await repo.getById(workoutId);
+    const workout = await customWorkoutRepo.getById(workoutId);
     if (workout) {
       setName(workout.name);
       setDescription(workout.description);
     }
-    const savedExercises = await repo.getExercises(workoutId);
+    const savedExercises = await customWorkoutRepo.getExercises(workoutId);
     setExercises(savedExercises.map((e, i) => ({
       tempId: String(e.id),
       exercise_id: e.exercise_id,
@@ -142,11 +140,11 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
 
     try {
       if (isEditing && workoutId) {
-        await repo.update(workoutId, { name: trimmedName, description: description.trim() });
-        await repo.deleteAllExercises(workoutId);
+        await customWorkoutRepo.update(workoutId, { name: trimmedName, description: description.trim() });
+        await customWorkoutRepo.deleteAllExercises(workoutId);
         for (let i = 0; i < exercises.length; i++) {
           const e = exercises[i];
-          await repo.addExercise({
+          await customWorkoutRepo.addExercise({
             custom_workout_id: workoutId,
             exercise_id: e.exercise_id,
             exercise_name: e.exercise_name,
@@ -159,10 +157,10 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
           });
         }
       } else {
-        const newId = await repo.create({ name: trimmedName, description: description.trim() });
+        const newId = await customWorkoutRepo.create({ name: trimmedName, description: description.trim() });
         for (let i = 0; i < exercises.length; i++) {
           const e = exercises[i];
-          await repo.addExercise({
+          await customWorkoutRepo.addExercise({
             custom_workout_id: newId,
             exercise_id: e.exercise_id,
             exercise_name: e.exercise_name,
@@ -190,7 +188,6 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
     }
 
     try {
-      const workoutRepo = new WorkoutRepository();
       const sessionId = await workoutRepo.createSession({
         date: todayISO(),
         start_time: timeNow(),

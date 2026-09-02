@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository, NutritionRepository, HydrationRepository, GoalRepository, MeasurementRepository, SettingsRepository, UserProfileRepository } from '../database/repositories';
+import { workoutRepo, nutritionRepo, hydrationRepo, goalRepo, measurementRepo, settingsRepo, userProfileRepo, dailyLogRepo } from '../database/repositories';
 import { RecommendationService } from '../services';
-import { todayLocal, formatDateLocal } from '../utils/dates';
+import { todayLocal, formatDateLocal, getStartOfWeekLocal, getEndOfWeekLocal } from '../utils/dates';
 import type { UserProfile, UserGoal } from '../models';
 
 interface DashboardScreenProps {
@@ -28,6 +28,8 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [weeklyCount, setWeeklyCount] = useState(0);
 
   const getGreeting = (): string => {
@@ -38,17 +40,12 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
   };
 
   const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const workoutRepo = new WorkoutRepository();
-      const hydrationRepo = new HydrationRepository();
-      const nutritionRepo = new NutritionRepository();
-      const goalRepo = new GoalRepository();
-      const measurementRepo = new MeasurementRepository();
-      const settingsRepo = new SettingsRepository();
-      const profileRepo = new UserProfileRepository();
       const today = todayLocal();
 
-      const userProfile = await profileRepo.get();
+      const userProfile = await userProfileRepo.get();
       setProfile(userProfile);
 
       const session = await workoutRepo.getTodaysSession();
@@ -73,27 +70,22 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         setGoalProgress(progress);
       }
 
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date();
-      weekEnd.setDate(weekEnd.getDate() + (6 - weekEnd.getDay()));
-      weekEnd.setHours(23, 59, 59, 999);
-      const wCount = await workoutRepo.getWeeklySessionCount(
-        formatDateLocal(weekStart),
-        formatDateLocal(weekEnd)
-      );
+      const weekStart = getStartOfWeekLocal();
+      const weekEnd = getEndOfWeekLocal();
+      const wCount = await workoutRepo.getWeeklySessionCount(weekStart, weekEnd);
       setWeeklyCount(wCount);
 
       const recommendationService = new RecommendationService(
         workoutRepo, nutritionRepo, measurementRepo, goalRepo,
-        new (await import('../database/repositories')).DailyLogRepository(),
+        dailyLogRepo,
         hydrationRepo, settingsRepo
       );
       const recs = await recommendationService.generateRecommendations();
       setSuggestions(recs.slice(0, 3).map(r => r.message));
     } catch (e) {
-      console.error('Failed to load dashboard:', e);
+      setError((e as Error)?.message || 'Failed to load');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -111,6 +103,24 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
     <ScrollView style={styles.container} refreshControl={
       <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
     }>
+      {loading && !todaysWorkout && !error && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 }}>
+          <ActivityIndicator size="large" color="#2563EB" />
+        </View>
+      )}
+
+      {error && (
+        <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <Text style={{ color: '#991B1B', fontWeight: '600', marginBottom: 8 }}>Something went wrong</Text>
+          <Text style={{ color: '#B91C1C', marginBottom: 12 }}>{error}</Text>
+          <TouchableOpacity onPress={loadDashboardData} style={{ backgroundColor: '#2563EB', borderRadius: 8, paddingVertical: 10, alignItems: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!loading && !error && (
+      <>
       <View style={styles.header}>
         <Text style={styles.greeting}>{getGreeting()}, {profile?.first_name || 'there'} 👋</Text>
         <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
@@ -247,6 +257,8 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       )}
 
       <View style={styles.bottomSpacer} />
+      </>
+      )}
     </ScrollView>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { NutritionRepository, DailyLogRepository } from '../database/repositories';
+import { nutritionRepo, dailyLogRepo } from '../database/repositories';
 import { foods, todayISO, type Food } from '../services';
 import type { MealType } from '../models';
 
@@ -36,7 +36,6 @@ export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) 
 
   const markNutritionLogged = async () => {
     try {
-      const dailyLogRepo = new DailyLogRepository();
       const logId = await dailyLogRepo.getOrCreateLog(todayISO());
       await dailyLogRepo.updateLog(logId, { nutrition_logged: true });
     } catch (e) {
@@ -54,7 +53,6 @@ export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) 
     const multiplier = qty / selectedFood.serving_size;
 
     try {
-      const nutritionRepo = new NutritionRepository();
       const meals = await nutritionRepo.getMealsByDate(todayISO());
       let mealId = meals.find(m => m.meal_type === selectedMeal)?.id;
 

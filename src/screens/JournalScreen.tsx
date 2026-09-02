@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { DailyLogRepository } from '../database/repositories';
+import { dailyLogRepo } from '../database/repositories';
 import { todayLocal } from '../utils/dates';
 
 interface JournalScreenProps {
@@ -22,11 +22,9 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
   const [logExists, setLogExists] = useState(false);
   const [logId, setLogId] = useState<number | null>(null);
 
-  const journalRepo = new DailyLogRepository();
-
   const loadEntry = useCallback(async () => {
     try {
-      const log = await journalRepo.getLog(today);
+      const log = await dailyLogRepo.getLog(today);
       if (!log) return;
       setLogExists(true);
       setLogId(log.id!);
@@ -55,11 +53,11 @@ export default function JournalScreen({ navigation }: JournalScreenProps) {
     try {
       let id = logId;
       if (!id) {
-        id = await journalRepo.getOrCreateLog(today);
+        id = await dailyLogRepo.getOrCreateLog(today);
         setLogId(id);
         setLogExists(true);
       }
-      await journalRepo.updateLog(id, {
+      await dailyLogRepo.updateLog(id, {
         weight_kg: weight ? parseFloat(weight) : null,
         sleep_hours: sleep ? parseFloat(sleep) : null,
         water_liters: water ? parseFloat(water) : null,

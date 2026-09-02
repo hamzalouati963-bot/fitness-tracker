@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { CustomWorkoutRepository, WorkoutRepository } from '../database/repositories';
+import { customWorkoutRepo, workoutRepo } from '../database/repositories';
 import { exercises as exercisesData, todayISO, timeNow } from '../services';
 import type { CustomWorkout } from '../models';
 
@@ -19,15 +19,13 @@ export default function CustomWorkoutsScreen({ navigation }: CustomWorkoutsScree
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const repo = new CustomWorkoutRepository();
-
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await repo.getAll();
+      const all = await customWorkoutRepo.getAll();
       const summaries: WorkoutSummary[] = [];
       for (const w of all) {
-        const exs = await repo.getExercises(w.id!);
+        const exs = await customWorkoutRepo.getExercises(w.id!);
         const totalSets = exs.reduce((acc, e) => acc + e.sets, 0);
         summaries.push({ workout: w, exerciseCount: exs.length, totalSets });
       }
@@ -48,8 +46,7 @@ export default function CustomWorkoutsScreen({ navigation }: CustomWorkoutsScree
   const handleStart = async (summary: WorkoutSummary) => {
     const w = summary.workout;
     try {
-      const workoutRepo = new WorkoutRepository();
-      const exs = await repo.getExercises(w.id!);
+      const exs = await customWorkoutRepo.getExercises(w.id!);
 
       const sessionId = await workoutRepo.createSession({
         date: todayISO(),
@@ -90,7 +87,7 @@ export default function CustomWorkoutsScreen({ navigation }: CustomWorkoutsScree
         style: 'destructive',
         onPress: async () => {
           try {
-            await repo.delete(w.id!);
+            await customWorkoutRepo.delete(w.id!);
             loadData();
           } catch (e) {
             console.error('Failed to delete:', e);

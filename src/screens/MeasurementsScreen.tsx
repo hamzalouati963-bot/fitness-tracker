@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { MeasurementRepository, SettingsRepository } from '../database/repositories';
+import { measurementRepo, settingsRepo } from '../database/repositories';
 import { todayISO } from '../services';
 import type { BodyMeasurement } from '../models';
 
@@ -25,11 +25,8 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
     source: 'manual',
   });
 
-  const measurementRepo = new MeasurementRepository();
-
   const loadMeasurements = useCallback(async () => {
     try {
-      const settingsRepo = new SettingsRepository();
       const profile = await settingsRepo.getProfile();
       if (profile?.height_cm) setHeight(profile.height_cm);
 

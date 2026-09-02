@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { workoutPrograms, exercises as exercisesData, todayISO, timeNow, type WorkoutProgram } from '../services';
-import { WorkoutRepository } from '../database/repositories';
+import { workoutRepo } from '../database/repositories';
 
 interface ProgramsScreenProps {
   navigation: any;
@@ -24,7 +24,6 @@ export default function ProgramsScreen({ navigation }: ProgramsScreenProps) {
   const startDay = async (program: WorkoutProgram, dayIndex: number) => {
     try {
       const day = program.days[dayIndex];
-      const workoutRepo = new WorkoutRepository();
       const sessionId = await workoutRepo.createSession({
         date: todayISO(),
         start_time: timeNow(),

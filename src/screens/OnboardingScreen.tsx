@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { UserProfileRepository } from '../database/repositories';
+import { userProfileRepo } from '../database/repositories';
 import type { UserGoal, FitnessLevel, Equipment } from '../models';
 
 interface OnboardingScreenProps {
@@ -110,8 +110,7 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
     }
 
     try {
-      const repo = new UserProfileRepository();
-      await repo.create({
+      await userProfileRepo.create({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         age: age ? Number(age) : null,

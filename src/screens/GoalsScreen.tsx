@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { GoalRepository } from '../database/repositories';
+import { goalRepo } from '../database/repositories';
 import { todayISO } from '../services';
 import type { Goal } from '../models';
 
@@ -23,8 +23,6 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
     target_value: '',
     unit: 'kg',
   });
-
-  const goalRepo = new GoalRepository();
 
   const loadGoals = useCallback(async () => {
     try {

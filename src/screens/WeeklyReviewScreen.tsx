@@ -1,22 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository, NutritionRepository, HydrationRepository, MeasurementRepository, SettingsRepository, UserProfileRepository } from '../database/repositories';
-import { formatDateLocal } from '../utils/dates';
+import { workoutRepo, nutritionRepo, hydrationRepo, measurementRepo, settingsRepo, userProfileRepo } from '../database/repositories';
+import { formatDateLocal, getStartOfWeekLocal, getEndOfWeekLocal } from '../utils/dates';
 
 interface WeeklyReviewScreenProps {
   navigation: any;
 }
 
 export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenProps) {
-  const [weekStart] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    d.setHours(0, 0, 0, 0);
-    return formatDateLocal(d);
-  });
-
-  const [weekEnd, setWeekEnd] = useState('');
+  const [weekStart] = useState(() => getStartOfWeekLocal());
+  const [weekEnd] = useState(() => getEndOfWeekLocal());
 
   const [loading, setLoading] = useState(true);
   const [workoutsCompleted, setWorkoutsCompleted] = useState(0);
@@ -27,22 +21,10 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [plannedDays, setPlannedDays] = useState(3);
 
-  useEffect(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 6);
-    d.setHours(0, 0, 0, 0);
-    setWeekEnd(formatDateLocal(d));
-  }, []);
-
   const loadReview = useCallback(async () => {
     setLoading(true);
     try {
-      const workoutRepo = new WorkoutRepository();
-      const nutritionRepo = new NutritionRepository();
-      const hydrationRepo = new HydrationRepository();
-      const measurementRepo = new MeasurementRepository();
-      const settingsRepo = new SettingsRepository();
-      const userProfile = await new UserProfileRepository().get();
+      const userProfile = await userProfileRepo.get();
       if (userProfile?.training_days && userProfile.training_days > 0) {
         setPlannedDays(userProfile.training_days);
       }
@@ -95,8 +77,6 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
       if (hydrationDays > 0) sugg.push(`Hydration goal reached on ${hydrationDays} days. Try to hit 7/7 next week.`);
       if (sugg.length === 0) sugg.push('Start logging workouts, meals, and water this week to see meaningful insights next review.');
       setSuggestions(sugg);
-
-      void logCount;
     } catch (e) {
       console.error('Failed to load weekly review:', e);
     } finally {

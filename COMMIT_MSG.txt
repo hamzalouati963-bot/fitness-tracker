@@ -1,0 +1,11 @@
+Phase 5-12: Singleton repos, dead code cleanup, error/empty states
+
+- Singleton repository instances (eliminates 51 per-render allocations)
+- Remove dead code: RepositoryContext, theme.ts, app_config.json, FoodEntry, NutritionService, unused constants (~240 lines removed)
+- Fix calculateWorkoutCalories formula (was double-dividing by 60)
+- Add getStartOfWeekLocal/getEndOfWeekLocal (Monday start) for week consistency
+- Fix DashboardScreen/WeeklyReviewScreen week calculations to use new utils
+- Fix dual profile system: SettingsRepository now bridges to user_profile table
+- Add loading/error/empty states to DashboardScreen, ProfileScreen, ProgressScreen
+- All 20 screens updated to use singleton repository instances
+- TypeScript clean, Expo export succeeds

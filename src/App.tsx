@@ -11,8 +11,7 @@ import ProgressScreen from './screens/ProgressScreen';
 import MoreStack from './MoreStack';
 import OnboardingScreen from './screens/OnboardingScreen';
 import { getDatabase } from './database';
-import { UserProfileRepository } from './database/repositories';
-import { RepositoryProvider } from './context/RepositoryContext';
+import { userProfileRepo } from './database/repositories';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,8 +24,7 @@ export default function App() {
     (async () => {
       try {
         await getDatabase();
-        const repo = new UserProfileRepository();
-        const profile = await repo.get();
+        const profile = await userProfileRepo.get();
         setHasProfile(!!profile);
         setReady(true);
       } catch (e: any) {
@@ -66,51 +64,49 @@ export default function App() {
   }
 
   return (
-    <RepositoryProvider>
-      <NavigationContainer>
-        <Tab.Navigator
-          screenOptions={({ route }: { route: { name: string } }) => ({
-            tabBarIcon: ({ color, size }: { color: string; size: number }) => {
-              let icon: React.ReactNode;
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={({ route }: { route: { name: string } }) => ({
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+            let icon: React.ReactNode;
 
-              if (route.name === 'Home') {
-                icon = <Text style={{ fontSize: size, color }}>🏠</Text>;
-              } else if (route.name === 'Workout') {
-                icon = <Text style={{ fontSize: size, color }}>🏋️</Text>;
-              } else if (route.name === 'Nutrition') {
-                icon = <Text style={{ fontSize: size, color }}>🍽️</Text>;
-              } else if (route.name === 'Progress') {
-                icon = <Text style={{ fontSize: size, color }}>📊</Text>;
-              } else {
-                icon = <Text style={{ fontSize: size, color }}>📱</Text>;
-              }
+            if (route.name === 'Home') {
+              icon = <Text style={{ fontSize: size, color }}>🏠</Text>;
+            } else if (route.name === 'Workout') {
+              icon = <Text style={{ fontSize: size, color }}>🏋️</Text>;
+            } else if (route.name === 'Nutrition') {
+              icon = <Text style={{ fontSize: size, color }}>🍽️</Text>;
+            } else if (route.name === 'Progress') {
+              icon = <Text style={{ fontSize: size, color }}>📊</Text>;
+            } else {
+              icon = <Text style={{ fontSize: size, color }}>📱</Text>;
+            }
 
-              return icon;
-            },
-            tabBarActiveTintColor: '#2563EB',
-            tabBarInactiveTintColor: '#9CA3AF',
-            headerShown: false,
-            tabBarStyle: {
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              elevation: 10,
-              backgroundColor: '#FFFFFF',
-              borderTopWidth: 1,
-              borderTopColor: '#E5E7EB',
-              height: 60,
-            },
-          })}
-        >
-          <Tab.Screen name="Home" component={DashboardScreen} />
-          <Tab.Screen name="Workout" component={WorkoutScreen} />
-          <Tab.Screen name="Nutrition" component={NutritionScreen} />
-          <Tab.Screen name="Progress" component={ProgressScreen} />
-          <Tab.Screen name="More" component={MoreStack} />
-        </Tab.Navigator>
-      </NavigationContainer>
-    </RepositoryProvider>
+            return icon;
+          },
+          tabBarActiveTintColor: '#2563EB',
+          tabBarInactiveTintColor: '#9CA3AF',
+          headerShown: false,
+          tabBarStyle: {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            elevation: 10,
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
+            height: 60,
+          },
+        })}
+      >
+        <Tab.Screen name="Home" component={DashboardScreen} />
+        <Tab.Screen name="Workout" component={WorkoutScreen} />
+        <Tab.Screen name="Nutrition" component={NutritionScreen} />
+        <Tab.Screen name="Progress" component={ProgressScreen} />
+        <Tab.Screen name="More" component={MoreStack} />
+      </Tab.Navigator>
+    </NavigationContainer>
   );
 }
 

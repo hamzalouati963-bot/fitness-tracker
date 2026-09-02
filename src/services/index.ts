@@ -8,6 +8,15 @@ import {
   SettingsRepository,
   CustomWorkoutRepository,
   UserProfileRepository,
+  workoutRepo,
+  nutritionRepo,
+  measurementRepo,
+  goalRepo,
+  dailyLogRepo,
+  hydrationRepo,
+  settingsRepo,
+  customWorkoutRepo,
+  userProfileRepo,
 } from '../database/repositories';
 import { getDatabase } from '../database';
 import { validateBackup } from '../utils/backup';
@@ -135,9 +144,7 @@ export class ProgressService {
   }
 
   async getWorkoutFrequencyPercentage(weeks: number = 1): Promise<number> {
-    const profilesRepo = new SettingsRepository();
-
-    const settings = await profilesRepo.getProfile();
+    const settings = await settingsRepo.getProfile();
     const preferredDays = settings.preferred_workout_days;
 
     const weekDays = preferredDays.split('_').length;
@@ -430,78 +437,6 @@ export class RecommendationService {
   }
 }
 
-export class NutritionService {
-  constructor(
-    private nutritionRepo: NutritionRepository,
-    private settingsRepo: SettingsRepository
-  ) {}
-
-  async getDailyTotals(date: string): Promise<{
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-    targetCalories: number;
-    targetProtein: number;
-    targetCarbs: number;
-    targetFat: number;
-  }> {
-    const nutrition = await this.nutritionRepo.getDailyNutrition(date);
-    const targets = await this.settingsRepo.getNutritionTargets();
-
-    return {
-      calories: Math.round(nutrition.calories),
-      protein: Math.round(nutrition.protein),
-      carbs: Math.round(nutrition.carbs),
-      fat: Math.round(nutrition.fat),
-      targetCalories: targets.calories_kcal,
-      targetProtein: targets.protein_g,
-      targetCarbs: targets.carbohydrates_g,
-      targetFat: targets.fat_g,
-    };
-  }
-
-  async getCaloriesRemaining(date: string): Promise<number> {
-    const totals = await this.getDailyTotals(date);
-    return Math.max(0, totals.targetCalories - totals.calories);
-  }
-
-  async getMacroProgress(date: string): Promise<{ protein: number; carbs: number; fat: number }> {
-    const totals = await this.getDailyTotals(date);
-    return {
-      protein: Math.min(100, Math.round((totals.protein / totals.targetProtein) * 100)),
-      carbs: Math.min(100, Math.round((totals.carbs / totals.targetCarbs) * 100)),
-      fat: Math.min(100, Math.round((totals.fat / totals.targetFat) * 100)),
-    };
-  }
-
-  searchFoods(query: string): Food[] {
-    const lowerQuery = query.toLowerCase();
-    return foods.filter(f =>
-      f.name.toLowerCase().includes(lowerQuery)
-    );
-  }
-
-  calculateFoodTotals(foodId: string, quantity: number): {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  } {
-    const food = foods.find(f => f.id === foodId);
-    if (!food) {
-      return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-    }
-    const multiplier = quantity / food.serving_size;
-    return {
-      calories: Math.round(food.calories * multiplier),
-      protein: Math.round(food.protein_g * multiplier * 10) / 10,
-      carbs: Math.round(food.carbs_g * multiplier * 10) / 10,
-      fat: Math.round(food.fat_g * multiplier * 10) / 10,
-    };
-  }
-}
-
 export class BackupService {
   /**
    * Export COMPLET (v2.0) : toutes les tables de donnees + profils + parametres.
@@ -526,9 +461,9 @@ export class BackupService {
       db.getAllAsync('SELECT * FROM hydration_entries ORDER BY id'),
       db.getAllAsync('SELECT * FROM custom_foods ORDER BY id'),
     ]);
-    const userProfile = await new UserProfileRepository().get();
-    const settings = await new SettingsRepository().getProfile();
-    const nutritionTargets = await new SettingsRepository().getNutritionTargets();
+    const userProfile = await userProfileRepo.get();
+    const settings = await settingsRepo.getProfile();
+    const nutritionTargets = await settingsRepo.getNutritionTargets();
 
     const backup = {
       version: '2.0',
@@ -573,7 +508,6 @@ export class BackupService {
 
     try {
       if (validation.version === '1.0') {
-        const settingsRepo = new SettingsRepository();
         await settingsRepo.updateProfile(parsed.profile);
         if (parsed.nutrition_targets) {
           await settingsRepo.updateNutritionTargets(parsed.nutrition_targets);
@@ -647,10 +581,10 @@ export class BackupService {
 
         // 3) profils (app_settings via repositories)
         if (parsed.profile) {
-          await new SettingsRepository().updateProfile(parsed.profile);
+          await settingsRepo.updateProfile(parsed.profile);
         }
         if (parsed.nutrition_targets) {
-          await new SettingsRepository().updateNutritionTargets(parsed.nutrition_targets);
+          await settingsRepo.updateNutritionTargets(parsed.nutrition_targets);
         }
         if (parsed.user_profile) {
           await db.runAsync('DELETE FROM user_profile', []);

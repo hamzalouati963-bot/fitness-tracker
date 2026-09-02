@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { CalculatorService } from '../services';
-import { SettingsRepository } from '../database/repositories';
+import { settingsRepo } from '../database/repositories';
 
 interface CalculatorsScreenProps {
   navigation: any;
@@ -20,7 +20,6 @@ export default function CalculatorsScreen({ navigation }: CalculatorsScreenProps
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const settingsRepo = new SettingsRepository();
         const profile = await settingsRepo.getProfile();
         if (profile) {
           const w = String(profile.current_weight_kg);

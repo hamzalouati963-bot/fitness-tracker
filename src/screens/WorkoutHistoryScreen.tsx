@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository } from '../database/repositories';
+import { workoutRepo } from '../database/repositories';
 import type { WorkoutSession } from '../models';
 
 interface WorkoutHistoryScreenProps {
@@ -33,7 +33,6 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
     setLoading(true);
     try {
       // 3 requetes agregees au lieu de N+1 par seance/exercice
-      const workoutRepo = new WorkoutRepository();
       const summaries = await workoutRepo.getSessionSummaries(50);
       setHistory(summaries);
     } catch (e) {

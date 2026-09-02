@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SettingsRepository } from '../database/repositories';
+import { settingsRepo } from '../database/repositories';
 import { clearAllData } from '../database';
 import { BackupService } from '../services';
 import type { FitnessGoal, ActivityLevel } from '../models';
@@ -29,8 +29,6 @@ const fitnessGoals = [
 ];
 
 export default function SettingsScreen({ navigation }: SettingsScreenProps) {
-  const settingsRepo = new SettingsRepository();
-
   const [profile, setProfile] = useState<{
     name: string;
     age: string;

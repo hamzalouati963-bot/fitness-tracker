@@ -103,7 +103,7 @@ export class WorkoutRepository {
 
   /** Resume des seances en 3 requetes agregees (remplace le N+1 de l'historique). */
   async getSessionSummaries(limit = 50): Promise<Array<{
-    id: number; date: string; name: string; duration: number | null;
+    id: number; date: string; name: string; duration: number;
     exercises: number; sets: number; volume: number; notes: string;
   }>> {
     const db = await getDatabase();
@@ -368,11 +368,6 @@ export class NutritionRepository {
     const db = await getDatabase();
     return db.getAllAsync<MealItem>('SELECT * FROM meal_items ORDER BY meal_id, id');
   }
-
-  async getAllCustomFoods(): Promise<CustomFood[]> {
-    const db = await getDatabase();
-    return db.getAllAsync<CustomFood>('SELECT * FROM custom_foods ORDER BY name');
-  }
 }
 
 export class MeasurementRepository {
@@ -610,10 +605,35 @@ export class HydrationRepository {
   }
 }
 
+const FITNESS_LEVEL_MAP: Record<string, Profile['activity_level']> = {
+  beginner: 'lightly_active',
+  intermediate: 'moderately_active',
+  advanced: 'very_active',
+};
+
+const USER_GOAL_MAP: Record<string, Profile['fitness_goal']> = {
+  lose_weight: 'weight_loss',
+  build_muscle: 'muscle_gain',
+  maintain_weight: 'general_fitness',
+  improve_fitness: 'general_fitness',
+  increase_strength: 'strength',
+  improve_endurance: 'endurance',
+};
+
+const DAYS_MAP: Record<number, string> = {
+  1: 'monday',
+  2: 'tues_thurs',
+  3: 'mon_wed_fri',
+  4: 'tues_wed_thurs_sat',
+  5: 'mon_tues_thurs_fri_sat',
+  6: 'mon_tues_wed_thurs_fri_sat',
+  7: 'everyday',
+};
+
 export class SettingsRepository {
   async getProfile(): Promise<Profile> {
     const db = await getDatabase();
-    const row = await db.getFirstAsync<Record<string, unknown>>('SELECT * FROM app_settings LIMIT 1');
+    const row = await db.getFirstAsync<Record<string, unknown>>('SELECT * FROM user_profile LIMIT 1');
     if (!row) {
       return {
         id: 1,
@@ -629,18 +649,19 @@ export class SettingsRepository {
         updated_at: new Date().toISOString()
       };
     }
+    const trainingDays = (row.training_days as number) || 3;
     return {
       id: row.id as number,
-      name: (row.profile_name as string) || '',
-      age: row.profile_age as number | null,
-      sex: row.profile_sex as Profile['sex'],
-      height_cm: row.profile_height_cm as number,
-      current_weight_kg: row.profile_current_weight_kg as number,
-      activity_level: row.profile_activity_level as Profile['activity_level'],
-      fitness_goal: row.profile_fitness_goal as Profile['fitness_goal'],
-      preferred_workout_days: row.profile_workout_days as string,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      name: ((row.first_name as string) || '') + (row.last_name ? ' ' + row.last_name : ''),
+      age: row.age as number | null,
+      sex: (row.gender as Profile['sex']) || 'male',
+      height_cm: (row.height_cm as number) || 182,
+      current_weight_kg: (row.weight_kg as number) || 75,
+      activity_level: FITNESS_LEVEL_MAP[row.fitness_level as string] || 'moderately_active',
+      fitness_goal: USER_GOAL_MAP[row.goal as string] || 'general_fitness',
+      preferred_workout_days: DAYS_MAP[trainingDays] || 'mon_wed_fri',
+      created_at: (row.created_at as string) || new Date().toISOString(),
+      updated_at: (row.updated_at as string) || new Date().toISOString()
     };
   }
 
@@ -662,24 +683,37 @@ export class SettingsRepository {
 
   async updateProfile(updates: Partial<Profile>): Promise<void> {
     const db = await getDatabase();
-    const fields: string[] = [];
-    const values: (string | number | null)[] = [];
+    const existing = await this.getProfile();
+    const merged = { ...existing, ...updates };
 
-    if (updates.name !== undefined) { fields.push('profile_name'); values.push(updates.name); }
-    if (updates.age !== undefined) { fields.push('profile_age'); values.push(updates.age); }
-    if (updates.sex !== undefined) { fields.push('profile_sex'); values.push(updates.sex); }
-    if (updates.height_cm !== undefined) { fields.push('profile_height_cm'); values.push(updates.height_cm); }
-    if (updates.current_weight_kg !== undefined) { fields.push('profile_current_weight_kg'); values.push(updates.current_weight_kg); }
-    if (updates.activity_level !== undefined) { fields.push('profile_activity_level'); values.push(updates.activity_level); }
-    if (updates.fitness_goal !== undefined) { fields.push('profile_fitness_goal'); values.push(updates.fitness_goal); }
-    if (updates.preferred_workout_days !== undefined) { fields.push('profile_workout_days'); values.push(updates.preferred_workout_days); }
+    const firstName = (merged.name || '').trim().split(' ')[0] || '';
+    const lastName = (merged.name || '').trim().split(' ').slice(1).join(' ') || '';
 
-    if (fields.length > 0) {
-      // app_settings n'a pas de colonne updated_at (schema d'origine) : on ne l'ecrit pas.
-      await db.runAsync(
-        `UPDATE app_settings SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = 1`,
-        values
-      );
+    const REVERSE_LEVEL: Record<string, string> = {
+      sedentary: 'beginner', lightly_active: 'beginner',
+      moderately_active: 'intermediate', very_active: 'advanced',
+    };
+    const REVERSE_GOAL: Record<string, string> = {
+      weight_loss: 'lose_weight', muscle_gain: 'build_muscle',
+      general_fitness: 'improve_fitness', strength: 'increase_strength',
+      endurance: 'improve_endurance',
+    };
+
+    const goalKey = Object.entries(USER_GOAL_MAP).find(([, v]) => v === merged.fitness_goal)?.[0] || 'improve_fitness';
+    const levelKey = Object.entries(FITNESS_LEVEL_MAP).find(([, v]) => v === merged.activity_level)?.[0] || 'intermediate';
+
+    const existingProfile = await userProfileRepo.get();
+    if (existingProfile?.id) {
+      await userProfileRepo.update(existingProfile.id, {
+        first_name: firstName,
+        last_name: lastName,
+        age: merged.age,
+        gender: merged.sex,
+        height_cm: merged.height_cm,
+        weight_kg: merged.current_weight_kg,
+        goal: (REVERSE_GOAL[merged.fitness_goal] || 'improve_fitness') as any,
+        fitness_level: (levelKey) as any,
+      });
     }
   }
 
@@ -1001,3 +1035,14 @@ export class UserProfileRepository {
 function now(): string {
   return new Date().toISOString();
 }
+
+// Singleton instances — screens import these instead of `new XxxRepository()`
+export const workoutRepo = new WorkoutRepository();
+export const nutritionRepo = new NutritionRepository();
+export const measurementRepo = new MeasurementRepository();
+export const goalRepo = new GoalRepository();
+export const dailyLogRepo = new DailyLogRepository();
+export const hydrationRepo = new HydrationRepository();
+export const settingsRepo = new SettingsRepository();
+export const customWorkoutRepo = new CustomWorkoutRepository();
+export const userProfileRepo = new UserProfileRepository();
