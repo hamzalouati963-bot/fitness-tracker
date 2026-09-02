@@ -32,31 +32,9 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
   const loadHistory = useCallback(async () => {
     setLoading(true);
     try {
+      // 3 requetes agregees au lieu de N+1 par seance/exercice
       const workoutRepo = new WorkoutRepository();
-      const sessions = await workoutRepo.getSessions(50);
-      const summaries: SessionSummary[] = [];
-
-      for (const session of sessions) {
-        const exercises = await workoutRepo.getExercisesBySession(session.id!);
-        let sets = 0;
-        let volume = 0;
-        for (const exercise of exercises) {
-          const exerciseSets = await workoutRepo.getSetsByExercise(exercise.id!);
-          sets += exerciseSets.length;
-          volume += exerciseSets.reduce((acc, s) => acc + s.weight_kg * s.reps, 0);
-        }
-        summaries.push({
-          id: session.id!,
-          date: session.date,
-          name: session.program_name || 'Workout',
-          duration: session.duration_minutes || 0,
-          exercises: exercises.length,
-          sets,
-          volume: Math.round(volume),
-          notes: session.notes,
-        });
-      }
-
+      const summaries = await workoutRepo.getSessionSummaries(50);
       setHistory(summaries);
     } catch (e) {
       console.error('Failed to load history:', e);

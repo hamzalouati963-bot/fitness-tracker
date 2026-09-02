@@ -17,6 +17,8 @@ import type {
   FitnessLevel,
   Equipment
 } from '../models';
+import { todayLocal, formatDateLocal } from '../utils/dates';
+import { minutesBetweenTimeStrings } from '../utils/backup';
 
 export class WorkoutRepository {
   async getSessions(limit?: number, offset?: number): Promise<WorkoutSession[]> {
@@ -70,6 +72,18 @@ export class WorkoutRepository {
 
   async updateSession(id: number, updates: Partial<WorkoutSession>): Promise<void> {
     const db = await getDatabase();
+
+    // Calcul automatique de la duree quand on cloture la seance (HH:MM local)
+    if (updates.end_time && updates.duration_minutes === undefined) {
+      const session = await this.getSession(id);
+      if (session?.start_time) {
+        const duration = minutesBetweenTimeStrings(session.start_time, updates.end_time);
+        if (duration !== null && duration >= 0) {
+          updates = { ...updates, duration_minutes: duration };
+        }
+      }
+    }
+
     const now = new Date().toISOString();
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
@@ -85,6 +99,56 @@ export class WorkoutRepository {
       `UPDATE workout_sessions SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`,
       values
     );
+  }
+
+  /** Resume des seances en 3 requetes agregees (remplace le N+1 de l'historique). */
+  async getSessionSummaries(limit = 50): Promise<Array<{
+    id: number; date: string; name: string; duration: number | null;
+    exercises: number; sets: number; volume: number; notes: string;
+  }>> {
+    const db = await getDatabase();
+    const sessions = await db.getAllAsync<WorkoutSession & { notes: string }>(
+      'SELECT * FROM workout_sessions ORDER BY date DESC, start_time DESC LIMIT ?',
+      [limit]
+    );
+    if (sessions.length === 0) return [];
+
+    const exRows = await db.getAllAsync<{ session_id: number; exercise_count: number }>(
+      `SELECT session_id, COUNT(*) as exercise_count FROM workout_exercises GROUP BY session_id`
+    );
+    const setRows = await db.getAllAsync<{ exercise_id: number; set_count: number; volume: number }>(
+      `SELECT we.id as exercise_id, COUNT(ws.id) as set_count,
+              COALESCE(SUM(ws.weight_kg * ws.reps), 0) as volume
+       FROM workout_exercises we
+       LEFT JOIN workout_sets ws ON ws.exercise_id = we.id
+       GROUP BY we.id`
+    );
+    const exBySession = new Map(exRows.map(r => [r.session_id, r.exercise_count]));
+    // mapping exercise_id -> session via une requete leger
+    const exSession = await db.getAllAsync<{ id: number; session_id: number }>(
+      'SELECT id, session_id FROM workout_exercises'
+    );
+    const setsBySession = new Map<number, { sets: number; volume: number }>();
+    const exIdToSession = new Map(exSession.map(r => [r.id, r.session_id]));
+    for (const row of setRows) {
+      const sid = exIdToSession.get(row.exercise_id);
+      if (sid === undefined) continue;
+      const agg = setsBySession.get(sid) ?? { sets: 0, volume: 0 };
+      agg.sets += row.set_count;
+      agg.volume += row.volume;
+      setsBySession.set(sid, agg);
+    }
+
+    return sessions.map(s => ({
+      id: s.id!,
+      date: s.date,
+      name: s.program_name || 'Workout',
+      duration: s.duration_minutes ?? 0,
+      exercises: exBySession.get(s.id!) ?? 0,
+      sets: setsBySession.get(s.id!)?.sets ?? 0,
+      volume: Math.round(setsBySession.get(s.id!)?.volume ?? 0),
+      notes: s.notes ?? '',
+    }));
   }
 
   async deleteSession(id: number): Promise<void> {
@@ -148,7 +212,7 @@ export class WorkoutRepository {
   }
 
   async getTodaysSession(): Promise<WorkoutSession | null> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocal();
     const db = await getDatabase();
     return db.getFirstAsync<WorkoutSession>(
       'SELECT * FROM workout_sessions WHERE date = ? AND end_time IS NULL LIMIT 1',
@@ -184,6 +248,33 @@ export class NutritionRepository {
   async getMealItems(mealId: number): Promise<MealItem[]> {
     const db = await getDatabase();
     return db.getAllAsync<MealItem>('SELECT * FROM meal_items WHERE meal_id = ?', [mealId]);
+  }
+
+  /**
+   * Batch fetch all meal items for multiple meals in a single query
+   * Fixes N+1 query problem when loading meals with items
+   */
+  async getMealItemsByMealIds(mealIds: number[]): Promise<Map<number, MealItem[]>> {
+    if (mealIds.length === 0) {
+      return new Map();
+    }
+
+    const db = await getDatabase();
+    const placeholders = mealIds.map(() => '?').join(',');
+    const items = await db.getAllAsync<MealItem & { meal_id: number }>(
+      `SELECT * FROM meal_items WHERE meal_id IN (${placeholders}) ORDER BY meal_id`,
+      mealIds
+    );
+
+    // Group items by meal_id
+    const itemsByMealId = new Map<number, MealItem[]>();
+    for (const item of items) {
+      if (!itemsByMealId.has(item.meal_id)) {
+        itemsByMealId.set(item.meal_id, []);
+      }
+      itemsByMealId.get(item.meal_id)!.push(item);
+    }
+    return itemsByMealId;
   }
 
   async createMealItem(item: Omit<MealItem, 'id' | 'created_at'>): Promise<number> {
@@ -229,7 +320,7 @@ export class NutritionRepository {
         FROM meals m JOIN meal_items mi ON m.id = mi.meal_id
         WHERE m.date >= ? GROUP BY m.date
       )`,
-      [startDate.toISOString().split('T')[0]]
+      [formatDateLocal(startDate)]
     );
     return result?.avg ?? 0;
   }
@@ -242,7 +333,7 @@ export class NutritionRepository {
       `SELECT COUNT(*) as count FROM (
         SELECT DISTINCT m.date FROM meals m WHERE m.date >= ?
       )`,
-      [startDate.toISOString().split('T')[0]]
+      [formatDateLocal(startDate)]
     );
     return result?.count ?? 0;
   }
@@ -266,6 +357,21 @@ export class NutritionRepository {
   async deleteCustomFood(id: number): Promise<void> {
     const db = await getDatabase();
     await db.runAsync('DELETE FROM custom_foods WHERE id = ?', [id]);
+  }
+
+  async getAllMeals(): Promise<Meal[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<Meal>('SELECT * FROM meals ORDER BY date, id');
+  }
+
+  async getAllMealItems(): Promise<MealItem[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<MealItem>('SELECT * FROM meal_items ORDER BY meal_id, id');
+  }
+
+  async getAllCustomFoods(): Promise<CustomFood[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<CustomFood>('SELECT * FROM custom_foods ORDER BY name');
   }
 }
 
@@ -317,8 +423,12 @@ export class MeasurementRepository {
   async getDaysSinceLastMeasurement(): Promise<number> {
     const latest = await this.getLatestMeasurement();
     if (!latest) return Infinity;
-    const lastDate = new Date(latest.date);
-    const today = new Date();
+    // latest.date = "YYYY-MM-DD" (jour civil local) -> parser en local, pas en UTC
+    const parts = latest.date.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return Infinity;
+    const lastDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const diff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
     return diff;
   }
@@ -443,7 +553,7 @@ export class DailyLogRepository {
     startDate.setDate(startDate.getDate() - days);
     const result = await db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM daily_logs WHERE workout_completed = 1 AND date >= ?',
-      [startDate.toISOString().split('T')[0]]
+      [formatDateLocal(startDate)]
     );
     return result?.count ?? 0;
   }
@@ -454,7 +564,7 @@ export class DailyLogRepository {
     startDate.setDate(startDate.getDate() - days);
     const result = await db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM daily_logs WHERE water_liters > 0 AND date >= ?',
-      [startDate.toISOString().split('T')[0]]
+      [formatDateLocal(startDate)]
     );
     return result?.count ?? 0;
   }
@@ -487,6 +597,11 @@ export class HydrationRepository {
       'SELECT * FROM hydration_entries WHERE date = ? ORDER BY time',
       [date]
     );
+  }
+
+  async getAllEntries(): Promise<HydrationEntry[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<HydrationEntry>('SELECT * FROM hydration_entries ORDER BY date, time');
   }
 
   async deleteEntry(id: number): Promise<void> {
@@ -560,9 +675,9 @@ export class SettingsRepository {
     if (updates.preferred_workout_days !== undefined) { fields.push('profile_workout_days'); values.push(updates.preferred_workout_days); }
 
     if (fields.length > 0) {
-      values.push(now());
+      // app_settings n'a pas de colonne updated_at (schema d'origine) : on ne l'ecrit pas.
       await db.runAsync(
-        `UPDATE app_settings SET ${fields.map(f => `${f} = ?`).join(', ')}, updated_at = ? WHERE id = 1`,
+        `UPDATE app_settings SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = 1`,
         values
       );
     }
@@ -624,7 +739,7 @@ export class SettingsRepository {
     };
   }
 
-  async updateNotificationSettings(settings: Partial<import('../models').NotificationSettings>): Promise<void> {
+  async updateNotificationSettings(settings: import('../models').NotificationSettingsUpdate): Promise<void> {
     const db = await getDatabase();
     const fields: string[] = [];
     const values: (string | number)[] = [];

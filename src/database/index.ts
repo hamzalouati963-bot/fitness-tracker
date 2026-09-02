@@ -259,3 +259,44 @@ export async function closeDatabase() {
     db = null;
   }
 }
+
+/**
+ * Supprime TOUTES les donnees de tracking + profils, de facon transactionnelle.
+ * Les structures (tables/index) sont conservees. Retourne le nombre de lignes supprimees.
+ */
+export async function clearAllData(): Promise<void> {
+  const database = await getDatabase();
+  await database.withTransactionAsync(async () => {
+    // Ordre respectant les FK (enfants d'abord)
+    await database.runAsync('DELETE FROM workout_sets', []);
+    await database.runAsync('DELETE FROM workout_exercises', []);
+    await database.runAsync('DELETE FROM workout_sessions', []);
+    await database.runAsync('DELETE FROM meal_items', []);
+    await database.runAsync('DELETE FROM meals', []);
+    await database.runAsync('DELETE FROM custom_workout_exercises', []);
+    await database.runAsync('DELETE FROM custom_workouts', []);
+    await database.runAsync('DELETE FROM body_measurements', []);
+    await database.runAsync('DELETE FROM goals', []);
+    await database.runAsync('DELETE FROM daily_logs', []);
+    await database.runAsync('DELETE FROM hydration_entries', []);
+    await database.runAsync('DELETE FROM custom_foods', []);
+    await database.runAsync('DELETE FROM user_profile', []);
+    // app_settings : re-seed des valeurs par defaut
+    await database.runAsync('DELETE FROM app_settings', []);
+    await database.runAsync(
+      `INSERT INTO app_settings (
+        profile_name, profile_age, profile_sex, profile_height_cm, profile_current_weight_kg,
+        profile_activity_level, profile_fitness_goal, profile_workout_days,
+        nutrition_calories, nutrition_protein, nutrition_carbs, nutrition_fat, nutrition_hydration,
+        notification_workout_enabled, notification_workout_time,
+        notification_hydration_enabled, notification_hydration_interval,
+        notification_meal_enabled, notification_meal_time,
+        notification_measurement_enabled, notification_measurement_interval,
+        notification_weekly_enabled, notification_weekly_day, notification_weekly_time,
+        theme, unit_system
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ['', null, 'male', 182, 116.2, 'sedentary', 'weight_loss', 'mon_wed_fri', 2200, 150, 250, 70, 2.5,
+       1, '08:00', 1, 60, 1, '12:00', 0, 7, 1, 'sunday', '20:00', 'system', 'metric']
+    );
+  });
+}

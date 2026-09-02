@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SettingsRepository } from '../database/repositories';
+import { clearAllData } from '../database';
 import { BackupService } from '../services';
 import type { FitnessGoal, ActivityLevel } from '../models';
 
@@ -71,6 +72,10 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     theme: 'system',
     unit_system: 'metric',
   });
+
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -154,18 +159,18 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
   const saveNotifications = async () => {
     try {
-      const now = new Date();
-      const timeNowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      // Uniquement les toggles : les heures/intervalles configures ne sont pas ecrases
       await settingsRepo.updateNotificationSettings({
-        workout_reminder: { enabled: notifications.workout, time: '08:00' },
-        hydration_reminder: { enabled: notifications.hydration, interval_minutes: 90 },
-        meal_logging_reminder: { enabled: notifications.meal, time: '12:00' },
-        measurement_reminder: { enabled: notifications.measurement, interval_days: 7 },
-        weekly_review_reminder: { enabled: notifications.weekly_review, day: 'sun', time: timeNowStr },
+        workout_reminder: { enabled: notifications.workout },
+        hydration_reminder: { enabled: notifications.hydration },
+        meal_logging_reminder: { enabled: notifications.meal },
+        measurement_reminder: { enabled: notifications.measurement },
+        weekly_review_reminder: { enabled: notifications.weekly_review },
       });
       Alert.alert('Saved', 'Notification settings saved');
     } catch (e) {
       console.error('Failed to save notifications:', e);
+      Alert.alert('Error', 'Impossible to save notifications.');
     }
   };
 
@@ -182,36 +187,67 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     try {
       const backupService = new BackupService();
       const json = await backupService.exportAll();
-      await Share.share({ message: json });
+      await Share.share({
+        title: 'Fitness Tracker backup',
+        message: json,
+      });
     } catch (e) {
       console.error('Failed to export data:', e);
+      Alert.alert('Error', 'Impossible to export data.');
+    }
+  };
+
+  const runImport = async () => {
+    if (!importText.trim()) {
+      Alert.alert('Import', 'Paste your backup JSON first.');
+      return;
+    }
+    setImporting(true);
+    try {
+      const backupService = new BackupService();
+      const result = await backupService.importData(importText.trim());
+      if (result.success) {
+        setImportModalVisible(false);
+        setImportText('');
+        Alert.alert('Import complete', 'Your data has been restored successfully.');
+        loadSettings();
+      } else {
+        Alert.alert('Import failed', result.error || 'Invalid backup data.');
+      }
+    } catch (e) {
+      console.error('Failed to import data:', e);
+      Alert.alert('Import failed', 'An error occurred. No data was changed.');
+    } finally {
+      setImporting(false);
     }
   };
 
   const importData = () => {
-    Alert.alert('Import', 'Paste your backup JSON below', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Import',
-        onPress: () => {
-          Alert.alert('Import', 'This version imports backup data via a file. Paste JSON into the field.');
-        },
-      },
-    ]);
+    setImportText('');
+    setImportModalVisible(true);
   };
 
-  const clearAllData = async () => {
-    Alert.alert('Clear Data', 'This will delete ALL your data. Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          // Full hard reset is handled by the getDatabase seed; re-import defaults
-          Alert.alert('Done', 'Data cleared. Restart the app to re-seed defaults.');
+  const clearAllData = () => {
+    Alert.alert(
+      'Clear All Data',
+      'This will permanently delete ALL your data: workouts, meals, measurements, journal, goals and your profile.\n\nThis cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllData();
+              Alert.alert('Done', 'All data cleared. Restart the app to set up your profile again.');
+            } catch (e) {
+              console.error('Failed to clear data:', e);
+              Alert.alert('Error', 'Impossible to clear data.');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
@@ -521,6 +557,44 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         </View>
       </View>
 
+      {/* Import Modal */}
+      <Modal
+        visible={importModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setImportModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+              <Icon name="close" size={24} color="#1F2937" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Import Backup</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <Text style={styles.modalHint}>
+            Paste the backup JSON below. This will replace ALL current data.
+          </Text>
+          <TextInput
+            style={styles.modalInput}
+            multiline
+            textAlignVertical="top"
+            value={importText}
+            onChangeText={setImportText}
+            placeholder={'"version": "2.0", ...'}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <TouchableOpacity
+            style={[styles.modalImportButton, importing && { opacity: 0.6 }]}
+            onPress={runImport}
+            disabled={importing}
+          >
+            <Text style={styles.modalImportText}>{importing ? 'Importing...' : 'Import Data'}</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       <View style={styles.spacer} />
     </ScrollView>
   );
@@ -528,6 +602,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
+  modalContainer: { flex: 1, backgroundColor: '#F9FAFB', padding: 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, marginBottom: 8 },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937' },
+  modalHint: { fontSize: 13, color: '#6B7280', marginBottom: 12 },
+  modalInput: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, fontSize: 12, color: '#1F2937', fontFamily: undefined },
+  modalImportButton: { backgroundColor: '#2563EB', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16 },
+  modalImportText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937' },
   section: { marginBottom: 24 },

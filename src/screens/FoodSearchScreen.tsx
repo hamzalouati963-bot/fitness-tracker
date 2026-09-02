@@ -1,68 +1,114 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { NutritionRepository } from '../database/repositories';
+import { NutritionRepository, DailyLogRepository } from '../database/repositories';
 import { foods, todayISO, type Food } from '../services';
+import type { MealType } from '../models';
 
 interface FoodSearchScreenProps {
   navigation: any;
 }
 
-export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) {
-  const [search, setSearch] = React.useState('');
-  const [results, setResults] = React.useState<Food[]>([]);
+const MEAL_TYPES: { id: MealType; label: string; icon: string }[] = [
+  { id: 'breakfast', label: 'Breakfast', icon: '🌅' },
+  { id: 'lunch', label: 'Lunch', icon: '☀️' },
+  { id: 'dinner', label: 'Dinner', icon: '🌙' },
+  { id: 'snack', label: 'Snack', icon: '🍿' },
+];
 
-  React.useEffect(() => {
+export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) {
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<Food[]>([]);
+  const [selectedMeal, setSelectedMeal] = useState<MealType>('snack');
+  const [quantity, setQuantity] = useState('');
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+
+  useEffect(() => {
     if (search.trim().length > 0) {
-      const filtered = foods.filter(f =>
-        f.name.toLowerCase().includes(search.trim().toLowerCase())
-      );
+      const filtered = foods
+        .filter(f => f.name.toLowerCase().includes(search.trim().toLowerCase()))
+        .slice(0, 50);
       setResults(filtered);
     } else {
       setResults([]);
     }
   }, [search]);
 
-  const addFoodToMeal = (food: Food) => {
-    Alert.alert('Add Food', `Add ${food.name} (1 serving, ${food.serving_size}${food.unit})?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Add',
-        onPress: async () => {
-          try {
-            const nutritionRepo = new NutritionRepository();
-            const meals = await nutritionRepo.getMealsByDate(todayISO());
-            let mealId = meals.find(m => m.meal_type === 'snack')?.id;
-
-            if (!mealId) {
-              mealId = await nutritionRepo.createMeal({
-                date: todayISO(),
-                meal_type: 'snack',
-                name: 'Quick snack',
-                notes: '',
-              });
-            }
-
-            await nutritionRepo.createMealItem({
-              meal_id: mealId,
-              food_id: food.id,
-              food_name: food.name,
-              quantity: food.serving_size,
-              unit: food.unit,
-              calories: food.calories,
-              protein_g: food.protein_g,
-              carbs_g: food.carbs_g,
-              fat_g: food.fat_g,
-            });
-
-            Alert.alert('Added', `${food.name} added to today's log.`);
-          } catch (e) {
-            console.error('Failed to add food:', e);
-          }
-        },
-      },
-    ]);
+  const markNutritionLogged = async () => {
+    try {
+      const dailyLogRepo = new DailyLogRepository();
+      const logId = await dailyLogRepo.getOrCreateLog(todayISO());
+      await dailyLogRepo.updateLog(logId, { nutrition_logged: true });
+    } catch (e) {
+      console.error('Failed to mark nutrition logged:', e);
+    }
   };
+
+  const confirmAdd = async () => {
+    if (!selectedFood) return;
+    const qty = parseFloat(quantity);
+    if (isNaN(qty) || qty <= 0) {
+      Alert.alert('Invalid quantity', 'Enter a quantity greater than 0.');
+      return;
+    }
+    const multiplier = qty / selectedFood.serving_size;
+
+    try {
+      const nutritionRepo = new NutritionRepository();
+      const meals = await nutritionRepo.getMealsByDate(todayISO());
+      let mealId = meals.find(m => m.meal_type === selectedMeal)?.id;
+
+      if (!mealId) {
+        const label = MEAL_TYPES.find(t => t.id === selectedMeal)?.label || 'Meal';
+        mealId = await nutritionRepo.createMeal({
+          date: todayISO(),
+          meal_type: selectedMeal,
+          name: label,
+          notes: '',
+        });
+      }
+
+      await nutritionRepo.createMealItem({
+        meal_id: mealId,
+        food_id: selectedFood.id,
+        food_name: selectedFood.name,
+        quantity: qty,
+        unit: selectedFood.unit,
+        calories: Math.round(selectedFood.calories * multiplier),
+        protein_g: Math.round(selectedFood.protein_g * multiplier * 10) / 10,
+        carbs_g: Math.round(selectedFood.carbs_g * multiplier * 10) / 10,
+        fat_g: Math.round(selectedFood.fat_g * multiplier * 10) / 10,
+      });
+
+      await markNutritionLogged();
+
+      setSelectedFood(null);
+      setQuantity('');
+      setSearch('');
+
+      Alert.alert('Added', `${selectedFood.name} (${qty}${selectedFood.unit}) added to ${selectedMeal}.`);
+    } catch (e) {
+      console.error('Failed to add food:', e);
+      Alert.alert('Error', 'Impossible to add this food. Please try again.');
+    }
+  };
+
+  const openAddDialog = (food: Food) => {
+    setSelectedFood(food);
+    setQuantity(String(food.serving_size));
+  };
+
+  const renderFood = ({ item }: { item: Food }) => (
+    <TouchableOpacity style={styles.foodCard} onPress={() => openAddDialog(item)}>
+      <View style={styles.foodInfo}>
+        <Text style={styles.foodName}>{item.name}</Text>
+        <Text style={styles.foodMeta}>
+          {item.serving_size}{item.unit} · {item.calories} kcal · P {item.protein_g}g / C {item.carbs_g}g / F {item.fat_g}g
+        </Text>
+      </View>
+      <Icon name="add-circle-outline" size={24} color="#2563EB" />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
@@ -78,48 +124,82 @@ export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) 
         <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search foods..."
+          placeholder="Search a food..."
           value={search}
           onChangeText={setSearch}
           autoCapitalize="none"
-          autoCorrect={false}
         />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Icon name="close" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {search.trim().length > 0 && (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.foodCard} onPress={() => addFoodToMeal(item)}>
-              <View style={styles.foodInfo}>
-                <Text style={styles.foodName}>{item.name}</Text>
-                <Text style={styles.foodServing}>Per {item.serving_size}{item.unit}</Text>
-              </View>
-              <View style={styles.foodCalories}>
-                <Text style={styles.foodCalsText}>{item.calories}</Text>
-                <Text style={styles.foodCalsUnit}>kcal</Text>
-              </View>
-              <View style={styles.foodMacros}>
-                <Text style={styles.macroText}>P:{item.protein_g}g</Text>
-                <Text style={styles.macroText}>C:{item.carbs_g}g</Text>
-                <Text style={styles.macroText}>F:{item.fat_g}g</Text>
-              </View>
-              <Icon name="add-circle" size={24} color="#2563EB" style={styles.addIcon} />
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={styles.foodList}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No foods found matching "{search}"</Text>
-          }
-        />
-      )}
+      <FlatList
+        data={results}
+        renderItem={renderFood}
+        keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          search.trim().length > 0 ? (
+            <View style={styles.emptyState}>
+              <Icon name="search-off" size={40} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No food found</Text>
+              <Text style={styles.emptySubtitle}>Try another search term</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Icon name="restaurant" size={40} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>Search the food database</Text>
+              <Text style={styles.emptySubtitle}>Type to find foods and log them</Text>
+            </View>
+          )
+        }
+      />
 
-      {search.trim().length === 0 && (
-        <View style={styles.emptyState}>
-          <Icon name="restaurant-menu" size={48} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>Food Database</Text>
-          <Text style={styles.emptySubtitle}>Search for foods to add to your meals</Text>
+      {selectedFood && (
+        <View style={styles.overlay}>
+          <View style={styles.dialog}>
+            <Text style={styles.dialogTitle}>{selectedFood.name}</Text>
+            <Text style={styles.dialogMeta}>
+              1 serving = {selectedFood.serving_size}{selectedFood.unit} · {selectedFood.calories} kcal
+            </Text>
+
+            <Text style={styles.dialogLabel}>ADD TO</Text>
+            <View style={styles.mealChips}>
+              {MEAL_TYPES.map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.mealChip, selectedMeal === t.id && styles.mealChipActive]}
+                  onPress={() => setSelectedMeal(t.id)}
+                >
+                  <Text style={[styles.mealChipText, selectedMeal === t.id && styles.mealChipTextActive]}>
+                    {t.icon} {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.dialogLabel}>QUANTITY ({selectedFood.unit})</Text>
+            <TextInput
+              style={styles.quantityInput}
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="decimal-pad"
+              placeholder="0"
+            />
+
+            <View style={styles.dialogActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => { setSelectedFood(null); setQuantity(''); }}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.addButton} onPress={confirmAdd}>
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       )}
     </View>
@@ -127,124 +207,69 @@ export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) 
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937' },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 16,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
+    shadowRadius: 2,
     elevation: 1,
   },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937',
-    padding: 0,
-  },
-  foodList: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 16, color: '#1F2937', paddingVertical: 12 },
+  list: { paddingHorizontal: 16, paddingBottom: 24 },
   foodCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
+    shadowRadius: 2,
     elevation: 1,
   },
-  foodInfo: {
-    flex: 2,
+  foodInfo: { flex: 1, marginRight: 8 },
+  foodName: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  foodMeta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  emptyState: { alignItems: 'center', padding: 32 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#6B7280', marginTop: 12 },
+  emptySubtitle: { fontSize: 13, color: '#9CA3AF', marginTop: 4, textAlign: 'center' },
+  overlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24,
   },
-  foodName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+  dialog: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20,
   },
-  foodServing: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
+  dialogTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
+  dialogMeta: { fontSize: 13, color: '#6B7280', marginTop: 4, marginBottom: 16 },
+  dialogLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
+  mealChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  mealChip: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F3F4F6', borderRadius: 20 },
+  mealChipActive: { backgroundColor: '#2563EB' },
+  mealChipText: { fontSize: 12, color: '#6B7280' },
+  mealChipTextActive: { color: '#FFFFFF', fontWeight: '600' },
+  quantityInput: {
+    backgroundColor: '#F9FAFB', borderRadius: 8, padding: 14, fontSize: 18,
+    fontWeight: '600', color: '#1F2937',
   },
-  foodCalories: {
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  foodCalsText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  foodCalsUnit: {
-    fontSize: 10,
-    color: '#9CA3AF',
-  },
-  foodMacros: {
-    flexDirection: 'row',
-    gap: 8,
-    marginRight: 8,
-  },
-  macroText: {
-    fontSize: 11,
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    color: '#6B7280',
-  },
-  addIcon: {
-    marginLeft: 8,
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginTop: 24,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  dialogActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  cancelButton: { flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, padding: 14, alignItems: 'center' },
+  cancelButtonText: { color: '#6B7280', fontWeight: '600', fontSize: 14 },
+  addButton: { flex: 1, backgroundColor: '#2563EB', borderRadius: 10, padding: 14, alignItems: 'center' },
+  addButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
 });
+
+export { FoodSearchScreen };

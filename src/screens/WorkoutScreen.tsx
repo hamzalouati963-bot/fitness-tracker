@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository } from '../database/repositories';
+import { WorkoutRepository, DailyLogRepository } from '../database/repositories';
 import type { WorkoutExercise, WorkoutSet } from '../models';
-import { timeNow } from '../services';
+import { timeNow, todayLocal } from '../services';
 
 interface WorkoutScreenProps {
   navigation: any;
@@ -26,7 +26,12 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
   const workoutRepo = new WorkoutRepository();
 
   const loadSession = useCallback(async () => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      setWorkoutExercises([]);
+      setSets([]);
+      setCurrentExerciseIndex(0);
+      return;
+    }
     setLoading(true);
     try {
       const exercises = await workoutRepo.getExercisesBySession(sessionId);
@@ -45,9 +50,18 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
     }
   }, [sessionId]);
 
+  // Reactiver au changement de params (ex: "Continue Workout" depuis le Dashboard
+  // alors que l'onglet Workout etait deja monte sans session)
   useEffect(() => {
     loadSession();
   }, [loadSession]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadSession();
+    });
+    return unsubscribe;
+  }, [navigation, loadSession]);
 
   useEffect(() => {
     if (restTimer === null) return;
@@ -120,6 +134,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
       setCurrentSet({ weight: '', reps: '' });
     } catch (e) {
       console.error('Failed to add set:', e);
+      Alert.alert('Error', 'Impossible to save the set. Please try again.');
     }
   };
 
@@ -127,7 +142,19 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
     if (!sessionId) return;
     try {
       const endTime = timeNow();
+      // updateSession calcule automatiquement duration_minutes (start_time -> end_time)
       await workoutRepo.updateSession(sessionId, { end_time: endTime });
+
+      // Marquer la seance comme completee dans le journal du jour (stats weekly)
+      try {
+        const dailyLogRepo = new DailyLogRepository();
+        const logId = await dailyLogRepo.getOrCreateLog(todayLocal());
+        await dailyLogRepo.updateLog(logId, { workout_completed: true });
+      } catch (e) {
+        console.error('Failed to mark daily log:', e);
+        Alert.alert('Warning', 'Workout saved but daily log update failed. Your stats may be incomplete.');
+      }
+
       Alert.alert('Workout Complete', 'Great job! Your workout has been saved.', [
         {
           text: 'OK',
@@ -136,6 +163,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
       ]);
     } catch (e) {
       console.error('Failed to finish workout:', e);
+      Alert.alert('Error', 'Impossible to save the workout. Please try again.');
     }
   };
 

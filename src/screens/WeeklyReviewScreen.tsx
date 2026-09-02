@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { WorkoutRepository, NutritionRepository, HydrationRepository, MeasurementRepository, SettingsRepository } from '../database/repositories';
+import { WorkoutRepository, NutritionRepository, HydrationRepository, MeasurementRepository, SettingsRepository, UserProfileRepository } from '../database/repositories';
+import { formatDateLocal } from '../utils/dates';
 
 interface WeeklyReviewScreenProps {
   navigation: any;
@@ -12,7 +13,7 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
     const d = new Date();
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     d.setHours(0, 0, 0, 0);
-    return d.toISOString().split('T')[0];
+    return formatDateLocal(d);
   });
 
   const [weekEnd, setWeekEnd] = useState('');
@@ -24,12 +25,13 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [lastWeekWeight, setLastWeekWeight] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [plannedDays, setPlannedDays] = useState(3);
 
   useEffect(() => {
     const d = new Date();
     d.setDate(d.getDate() + 6);
     d.setHours(0, 0, 0, 0);
-    setWeekEnd(d.toISOString().split('T')[0]);
+    setWeekEnd(formatDateLocal(d));
   }, []);
 
   const loadReview = useCallback(async () => {
@@ -40,6 +42,10 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
       const hydrationRepo = new HydrationRepository();
       const measurementRepo = new MeasurementRepository();
       const settingsRepo = new SettingsRepository();
+      const userProfile = await new UserProfileRepository().get();
+      if (userProfile?.training_days && userProfile.training_days > 0) {
+        setPlannedDays(userProfile.training_days);
+      }
 
       const [sessions, logCount, hydrationCount, target] = await Promise.all([
         workoutRepo.getSessionsByDateRange(weekStart, weekEnd),
@@ -54,7 +60,7 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
       for (let i = 0; i < 7; i++) {
         const d = new Date(weekStart + 'T00:00:00');
         d.setDate(d.getDate() + i);
-        dayList.push(d.toISOString().split('T')[0]);
+        dayList.push(formatDateLocal(d));
       }
 
       let nutritionDays = 0;
@@ -73,8 +79,8 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
       const lastWeekStart = new Date(weekStart + 'T00:00:00');
       lastWeekStart.setDate(lastWeekStart.getDate() - 7);
       const lastWeekMeasurements = await measurementRepo.getMeasurementsByDateRange(
-        lastWeekStart.toISOString().split('T')[0],
-        new Date(weekStart + 'T00:00:00').toISOString().split('T')[0]
+        formatDateLocal(lastWeekStart),
+        weekStart
       );
 
       if (latest?.weight_kg) setCurrentWeight(latest.weight_kg);
@@ -102,8 +108,8 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
     if (weekEnd) loadReview();
   }, [loadReview, weekEnd]);
 
-  const workoutsPlanned = 3;
-  const progressPercentage = Math.round((workoutsCompleted / workoutsPlanned) * 100);
+  const workoutsPlanned = plannedDays;
+  const progressPercentage = workoutsPlanned > 0 ? Math.round((workoutsCompleted / workoutsPlanned) * 100) : 0;
   const weightChange = currentWeight !== null && lastWeekWeight !== null
     ? currentWeight - lastWeekWeight
     : null;

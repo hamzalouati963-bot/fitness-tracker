@@ -32,6 +32,15 @@ export interface NotificationSettings {
   weekly_review_reminder: { enabled: boolean; day: string; time: string };
 }
 
+/** Mise a jour partielle : chaque sous-champ est optionnel (merge, pas d'ecrasement). */
+export interface NotificationSettingsUpdate {
+  workout_reminder?: { enabled?: boolean; time?: string };
+  hydration_reminder?: { enabled?: boolean; interval_minutes?: number };
+  meal_logging_reminder?: { enabled?: boolean; time?: string };
+  measurement_reminder?: { enabled?: boolean; interval_days?: number };
+  weekly_review_reminder?: { enabled?: boolean; day?: string; time?: string };
+}
+
 export interface AppAppearance {
   theme: 'light' | 'dark' | 'system';
   unit_system: 'metric' | 'imperial';

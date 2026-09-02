@@ -4,6 +4,12 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { NutritionRepository, SettingsRepository } from '../database/repositories';
 import { todayISO } from '../services';
 import type { Meal, MealItem } from '../models';
+import {
+  DEFAULT_CALORIE_GOAL,
+  DEFAULT_PROTEIN_GOAL_G,
+  DEFAULT_CARBS_GOAL_G,
+  DEFAULT_FAT_GOAL_G,
+} from '../constants';
 
 interface NutritionScreenProps {
   navigation: any;
@@ -20,7 +26,12 @@ interface MealWithTotals extends Meal {
 export default function NutritionScreen({ navigation }: NutritionScreenProps) {
   const [meals, setMeals] = useState<MealWithTotals[]>([]);
   const [todaysNutrition, setTodaysNutrition] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
-  const [targets, setTargets] = useState({ calories: 2200, protein: 150, carbs: 250, fat: 70 });
+  const [targets, setTargets] = useState({
+    calories: DEFAULT_CALORIE_GOAL,
+    protein: DEFAULT_PROTEIN_GOAL_G,
+    carbs: DEFAULT_CARBS_GOAL_G,
+    fat: DEFAULT_FAT_GOAL_G,
+  });
 
   const loadNutritionData = useCallback(async () => {
     try {
@@ -35,25 +46,30 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
       ]);
 
       const mealsWithItems: MealWithTotals[] = [];
-      for (const meal of mealRows) {
-        const items = await nutritionRepo.getMealItems(meal.id!);
-        const mealTotals = items.reduce(
-          (acc, item) => ({
-            calories: acc.calories + item.calories,
-            protein: acc.protein + item.protein_g,
-            carbs: acc.carbs + item.carbs_g,
-            fat: acc.fat + item.fat_g,
-          }),
-          { calories: 0, protein: 0, carbs: 0, fat: 0 }
-        );
-        mealsWithItems.push({
-          ...meal,
-          items,
-          total_calories: mealTotals.calories,
-          total_protein: mealTotals.protein,
-          total_carbs: mealTotals.carbs,
-          total_fat: mealTotals.fat,
-        });
+      if (mealRows.length > 0) {
+        const mealIds = mealRows.map(m => m.id!);
+        const itemsByMealId = await nutritionRepo.getMealItemsByMealIds(mealIds);
+
+        for (const meal of mealRows) {
+          const items = itemsByMealId.get(meal.id!) || [];
+          const mealTotals = items.reduce(
+            (acc, item) => ({
+              calories: acc.calories + item.calories,
+              protein: acc.protein + item.protein_g,
+              carbs: acc.carbs + item.carbs_g,
+              fat: acc.fat + item.fat_g,
+            }),
+            { calories: 0, protein: 0, carbs: 0, fat: 0 }
+          );
+          mealsWithItems.push({
+            ...meal,
+            items,
+            total_calories: mealTotals.calories,
+            total_protein: mealTotals.protein,
+            total_carbs: mealTotals.carbs,
+            total_fat: mealTotals.fat,
+          });
+        }
       }
 
       setMeals(mealsWithItems);
@@ -64,10 +80,10 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
         fat: Math.round(totals.fat),
       });
       setTargets({
-        calories: targetRows.calories_kcal || 2200,
-        protein: targetRows.protein_g || 150,
-        carbs: targetRows.carbohydrates_g || 250,
-        fat: targetRows.fat_g || 70,
+        calories: targetRows.calories_kcal || DEFAULT_CALORIE_GOAL,
+        protein: targetRows.protein_g || DEFAULT_PROTEIN_GOAL_G,
+        carbs: targetRows.carbohydrates_g || DEFAULT_CARBS_GOAL_G,
+        fat: targetRows.fat_g || DEFAULT_FAT_GOAL_G,
       });
     } catch (e) {
       console.error('Failed to load nutrition:', e);

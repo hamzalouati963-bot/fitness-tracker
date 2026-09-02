@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { WorkoutRepository, NutritionRepository, HydrationRepository, GoalRepository, MeasurementRepository, SettingsRepository, UserProfileRepository } from '../database/repositories';
 import { RecommendationService } from '../services';
+import { todayLocal, formatDateLocal } from '../utils/dates';
 import type { UserProfile, UserGoal } from '../models';
 
 interface DashboardScreenProps {
@@ -45,7 +46,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       const measurementRepo = new MeasurementRepository();
       const settingsRepo = new SettingsRepository();
       const profileRepo = new UserProfileRepository();
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocal();
 
       const userProfile = await profileRepo.get();
       setProfile(userProfile);
@@ -79,8 +80,8 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
       weekEnd.setDate(weekEnd.getDate() + (6 - weekEnd.getDay()));
       weekEnd.setHours(23, 59, 59, 999);
       const wCount = await workoutRepo.getWeeklySessionCount(
-        weekStart.toISOString().split('T')[0],
-        weekEnd.toISOString().split('T')[0]
+        formatDateLocal(weekStart),
+        formatDateLocal(weekEnd)
       );
       setWeeklyCount(wCount);
 

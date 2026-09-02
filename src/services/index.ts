@@ -6,12 +6,19 @@ import {
   DailyLogRepository,
   HydrationRepository,
   SettingsRepository,
+  CustomWorkoutRepository,
+  UserProfileRepository,
 } from '../database/repositories';
+import { getDatabase } from '../database';
+import { validateBackup } from '../utils/backup';
 import type { Recommendation } from '../models';
 import exercisesData from '../data/exercises.json';
 import workoutProgramsData from '../data/workout_programs.json';
 import foodsData from '../data/foods.json';
 import recommendationRulesData from '../data/recommendation_rules.json';
+import { todayLocal, formatDateLocal, dateDaysAgoLocal } from '../utils/dates';
+
+export { todayLocal, formatDateLocal, dateDaysAgoLocal } from '../utils/dates';
 
 export const exercises = exercisesData;
 export const workoutPrograms = workoutProgramsData;
@@ -22,62 +29,8 @@ export type Food = (typeof foodsData)[number];
 export type Exercise = (typeof exercisesData)[number];
 export type WorkoutProgram = (typeof workoutProgramsData)[number];
 
-export class CalculatorService {
-  calculateBMI(weightKg: number, heightCm: number): number {
-    if (weightKg <= 0 || heightCm <= 0) return 0;
-    const heightM = heightCm / 100;
-    return weightKg / (heightM * heightM);
-  }
-
-  calculateBMR(sex: 'male' | 'female', weightKg: number, heightCm: number, age: number): number {
-    if (weightKg <= 0 || heightCm <= 0 || age <= 0) return 0;
-    if (sex === 'male') {
-      return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
-    } else {
-      return 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
-    }
-  }
-
-  calculateTDEE(bmr: number, activityLevel: string): number {
-    const multipliers: Record<string, number> = {
-      'sedentary': 1.2,
-      'lightly_active': 1.375,
-      'moderately_active': 1.55,
-      'very_active': 1.725,
-    };
-    return bmr * (multipliers[activityLevel] || 1.2);
-  }
-
-  calculateMacroCalories(proteinG: number, carbsG: number, fatG: number): number {
-    return (proteinG * 4) + (carbsG * 4) + (fatG * 9);
-  }
-
-  calculateWorkoutCalories(activityType: string, durationMinutes: number, weightKg: number): number {
-    const metValues: Record<string, number> = {
-      'walking': 3.5,
-      'running': 7.0,
-      'cycling': 6.0,
-      'strength_training': 4.0,
-      'hiit': 8.0,
-      'swimming': 6.0,
-      'yoga': 2.5,
-    };
-    const met = metValues[activityType] || 4.0;
-    return Math.round((met * 3.5 * weightKg * durationMinutes) / (200 * 60));
-  }
-
-  getHydrationTarget(weightKg: number, activityLevel: string): number {
-    let baseLiters = weightKg * 0.033;
-    const multipliers: Record<string, number> = {
-      'sedentary': 1.0,
-      'lightly_active': 1.1,
-      'moderately_active': 1.2,
-      'very_active': 1.3,
-    };
-    const multiplier = multipliers[activityLevel] || 1.0;
-    return Math.round((baseLiters * multiplier) * 10) / 10;
-  }
-}
+// Calculs purs extraits (testables en Node) : src/services/calculator.ts
+export { CalculatorService } from './calculator';
 
 export class ProgressService {
   constructor(
@@ -94,8 +47,8 @@ export class ProgressService {
     startDate.setHours(0, 0, 0, 0);
 
     const measurements = await this.measurementRepo.getMeasurementsByDateRange(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
 
     const weightData: { date: string; weight: number | null }[] = measurements.map(m => ({
@@ -104,8 +57,8 @@ export class ProgressService {
     }));
 
     const logs = await this.dailyLogRepo.getLogsByDateRange(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
 
     const logMap = new Map(weightData.map(w => [w.date, w]));
@@ -125,8 +78,8 @@ export class ProgressService {
     startDate.setHours(0, 0, 0, 0);
 
     const measurements = await this.measurementRepo.getMeasurementsByDateRange(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
 
     return measurements.map(m => ({
@@ -142,8 +95,8 @@ export class ProgressService {
     startDate.setHours(0, 0, 0, 0);
 
     const measurements = await this.measurementRepo.getMeasurementsByDateRange(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
 
     return measurements.map(m => ({
@@ -165,12 +118,12 @@ export class ProgressService {
       startDate.setHours(0, 0, 0, 0);
 
       const count = await this.workoutRepo.getWeeklySessionCount(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
+        formatDateLocal(startDate),
+        formatDateLocal(endDate)
       );
 
       results.push({
-        weekStart: startDate.toISOString().split('T')[0],
+        weekStart: formatDateLocal(startDate),
         count,
       });
     }
@@ -194,8 +147,8 @@ export class ProgressService {
     startDate.setHours(0, 0, 0, 0);
 
     const actualWorkouts = await this.workoutRepo.getWeeklySessionCount(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
 
     const expectedWorkouts = weekDays * weeks;
@@ -216,7 +169,7 @@ export class RecommendationService {
 
   async generateRecommendations(): Promise<Recommendation[]> {
     const recommendations: Recommendation[] = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocal();
     const rules = recommendationRules;
 
     for (const rule of rules) {
@@ -320,8 +273,8 @@ export class RecommendationService {
     startDate.setHours(0, 0, 0, 0);
 
     const count = await this.workoutRepo.getWeeklySessionCount(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
     if (count < 2) {
       return "You have planned workouts this week that are not yet completed. Finish them to stay consistent.";
@@ -428,8 +381,8 @@ export class RecommendationService {
     startDate.setHours(0, 0, 0, 0);
 
     const count = await this.workoutRepo.getWeeklySessionCount(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      formatDateLocal(startDate),
+      formatDateLocal(endDate)
     );
 
     if (rule.id === 'consistency_streak_info') {
@@ -550,73 +503,182 @@ export class NutritionService {
 }
 
 export class BackupService {
+  /**
+   * Export COMPLET (v2.0) : toutes les tables de donnees + profils + parametres.
+   * Les cles primaires sont conservees pour restaurer les relations (FK).
+   */
   async exportAll(): Promise<string> {
-    const workoutRepo = new WorkoutRepository();
-    const nutritionRepo = new NutritionRepository();
-    const measurementRepo = new MeasurementRepository();
-    const goalRepo = new GoalRepository();
-    const dailyLogRepo = new DailyLogRepository();
-    const hydrationRepo = new HydrationRepository();
-    const settingsRepo = new SettingsRepository();
+    const db = await getDatabase();
 
-    const profile = await settingsRepo.getProfile();
-    const workouts = await workoutRepo.getSessions();
-    const measurements = await measurementRepo.getMeasurements();
-    const goals = await goalRepo.getAllGoals();
-    const logs = await dailyLogRepo.getLogsByDateRange(
-      '2020-01-01',
-      new Date().toISOString().split('T')[0]
-    );
-    const nutritionTargets = await settingsRepo.getNutritionTargets();
-
-    const allHydration: import('../models').HydrationEntry[] = [];
-    const uniqueDates = new Set<string>();
-    for (const workout of workouts) {
-      uniqueDates.add(workout.date);
-    }
-    for (const date of uniqueDates) {
-      const entries = await hydrationRepo.getEntriesByDate(date);
-      allHydration.push(...entries);
-    }
+    const [
+      workouts, workoutExercises, workoutSets,
+      meals, mealItems,
+      measurements, goals, logs, hydration, customFoods,
+    ] = await Promise.all([
+      db.getAllAsync('SELECT * FROM workout_sessions ORDER BY id'),
+      db.getAllAsync('SELECT * FROM workout_exercises ORDER BY id'),
+      db.getAllAsync('SELECT * FROM workout_sets ORDER BY id'),
+      db.getAllAsync('SELECT * FROM meals ORDER BY id'),
+      db.getAllAsync('SELECT * FROM meal_items ORDER BY id'),
+      db.getAllAsync('SELECT * FROM body_measurements ORDER BY id'),
+      db.getAllAsync('SELECT * FROM goals ORDER BY id'),
+      db.getAllAsync('SELECT * FROM daily_logs ORDER BY id'),
+      db.getAllAsync('SELECT * FROM hydration_entries ORDER BY id'),
+      db.getAllAsync('SELECT * FROM custom_foods ORDER BY id'),
+    ]);
+    const userProfile = await new UserProfileRepository().get();
+    const settings = await new SettingsRepository().getProfile();
+    const nutritionTargets = await new SettingsRepository().getNutritionTargets();
 
     const backup = {
-      version: '1.0',
+      version: '2.0',
       exported_at: new Date().toISOString(),
-      profile,
-      nutrition_targets: nutritionTargets,
       workouts,
-      measurements,
+      workout_exercises: workoutExercises,
+      workout_sets: workoutSets,
+      meals,
+      meal_items: mealItems,
+      body_measurements: measurements,
       goals,
       daily_logs: logs,
-      hydration: allHydration,
+      hydration_entries: hydration,
+      custom_foods: customFoods,
+      user_profile: userProfile,
+      profile: settings,
+      nutrition_targets: nutritionTargets,
     };
 
     return JSON.stringify(backup, null, 2);
   }
 
+  /**
+   * Import complet transactionnel : soit tout est restaure, soit rien (rollback).
+   * v2.0 : restaure toutes les tables (remplace les donnees existantes).
+   * v1.0 : restaure uniquement profil + objectifs nutritionnels (legacy).
+   */
   async importData(jsonString: string): Promise<{ success: boolean; error?: string }> {
+    let data: unknown;
     try {
-      const data = JSON.parse(jsonString);
+      data = JSON.parse(jsonString);
+    } catch {
+      return { success: false, error: 'Invalid JSON file' };
+    }
 
-      if (!data.version || !data.profile) {
-        return { success: false, error: 'Invalid backup format' };
+    const validation = validateBackup(data);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    const parsed = data as Record<string, any>;
+
+    try {
+      if (validation.version === '1.0') {
+        const settingsRepo = new SettingsRepository();
+        await settingsRepo.updateProfile(parsed.profile);
+        if (parsed.nutrition_targets) {
+          await settingsRepo.updateNutritionTargets(parsed.nutrition_targets);
+        }
+        return { success: true };
       }
 
-      const settingsRepo = new SettingsRepository();
-      await settingsRepo.updateProfile(data.profile);
-      if (data.nutrition_targets) {
-        await settingsRepo.updateNutritionTargets(data.nutrition_targets);
-      }
+      const db = await getDatabase();
+
+      /**
+       * Batch insert rows efficiently
+       * Inserts in chunks to avoid SQLite parameter limits (~999 params)
+       */
+      const insertRows = async (table: string, columns: string[], rows: any[][]) => {
+        if (rows.length === 0) return;
+
+        const BATCH_SIZE = 100; // Insert 100 rows per batch
+        const placeholders = columns.map(() => '?').join(', ');
+        const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+
+        // Process in batches
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+          const batch = rows.slice(i, i + BATCH_SIZE);
+          // Use Promise.all to parallelize within transaction
+          await Promise.all(batch.map(row => db.runAsync(sql, row)));
+        }
+      };
+      const col = (row: any, key: string) => (row[key] === undefined ? null : row[key]);
+      const pick = (rows: any[], columns: string[]) =>
+        rows.map(r => columns.map(c => col(r, c)));
+
+      await db.withTransactionAsync(async () => {
+        // 1) purge (ordre FK : enfants d'abord)
+        for (const t of ['workout_sets', 'workout_exercises', 'workout_sessions',
+          'meal_items', 'meals', 'body_measurements', 'goals', 'daily_logs',
+          'hydration_entries', 'custom_foods']) {
+          await db.runAsync(`DELETE FROM ${t}`, []);
+        }
+
+        // 2) reinsertion dans l'ordre des dependances
+        await insertRows('workout_sessions',
+          ['id', 'date', 'start_time', 'end_time', 'duration_minutes', 'program_id', 'program_name', 'notes', 'created_at', 'updated_at'],
+          pick(parsed.workouts, ['id', 'date', 'start_time', 'end_time', 'duration_minutes', 'program_id', 'program_name', 'notes', 'created_at', 'updated_at']));
+        await insertRows('workout_exercises',
+          ['id', 'session_id', 'exercise_id', 'exercise_name', 'order_index', 'notes', 'created_at'],
+          pick(parsed.workout_exercises, ['id', 'session_id', 'exercise_id', 'exercise_name', 'order_index', 'notes', 'created_at']));
+        await insertRows('workout_sets',
+          ['id', 'exercise_id', 'set_number', 'weight_kg', 'reps', 'completed', 'rpe', 'created_at'],
+          pick(parsed.workout_sets, ['id', 'exercise_id', 'set_number', 'weight_kg', 'reps', 'completed', 'rpe', 'created_at']));
+        await insertRows('meals',
+          ['id', 'date', 'meal_type', 'name', 'notes', 'created_at'],
+          pick(parsed.meals, ['id', 'date', 'meal_type', 'name', 'notes', 'created_at']));
+        await insertRows('meal_items',
+          ['id', 'meal_id', 'food_id', 'food_name', 'quantity', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
+          pick(parsed.meal_items, ['id', 'meal_id', 'food_id', 'food_name', 'quantity', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']));
+        await insertRows('body_measurements',
+          ['id', 'date', 'weight_kg', 'waist_cm', 'chest_cm', 'arm_cm', 'thigh_cm', 'body_fat_percent', 'muscle_mass_kg', 'bmi', 'water_percent', 'visceral_fat', 'phase_angle', 'source', 'notes', 'created_at'],
+          pick(parsed.body_measurements, ['id', 'date', 'weight_kg', 'waist_cm', 'chest_cm', 'arm_cm', 'thigh_cm', 'body_fat_percent', 'muscle_mass_kg', 'bmi', 'water_percent', 'visceral_fat', 'phase_angle', 'source', 'notes', 'created_at']));
+        await insertRows('goals',
+          ['id', 'goal_type', 'name', 'start_value', 'target_value', 'current_value', 'unit', 'start_date', 'target_date', 'is_active', 'notes', 'created_at', 'updated_at'],
+          pick(parsed.goals, ['id', 'goal_type', 'name', 'start_value', 'target_value', 'current_value', 'unit', 'start_date', 'target_date', 'is_active', 'notes', 'created_at', 'updated_at']));
+        await insertRows('daily_logs',
+          ['id', 'date', 'weight_kg', 'water_liters', 'sleep_hours', 'steps', 'workout_completed', 'nutrition_logged', 'mood', 'notes', 'created_at'],
+          pick(parsed.daily_logs, ['id', 'date', 'weight_kg', 'water_liters', 'sleep_hours', 'steps', 'workout_completed', 'nutrition_logged', 'mood', 'notes', 'created_at']));
+        await insertRows('hydration_entries',
+          ['id', 'date', 'time', 'amount_liters', 'source', 'created_at'],
+          pick(parsed.hydration_entries, ['id', 'date', 'time', 'amount_liters', 'source', 'created_at']));
+        await insertRows('custom_foods',
+          ['id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
+          pick(parsed.custom_foods, ['id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']));
+
+        // 3) profils (app_settings via repositories)
+        if (parsed.profile) {
+          await new SettingsRepository().updateProfile(parsed.profile);
+        }
+        if (parsed.nutrition_targets) {
+          await new SettingsRepository().updateNutritionTargets(parsed.nutrition_targets);
+        }
+        if (parsed.user_profile) {
+          await db.runAsync('DELETE FROM user_profile', []);
+          const up = parsed.user_profile;
+          await insertRows('user_profile',
+            ['id', 'first_name', 'last_name', 'age', 'gender', 'height_cm', 'weight_kg', 'goal', 'fitness_level', 'training_days', 'session_duration', 'equipment', 'created_at', 'updated_at'],
+            [[col(up, 'id'), col(up, 'first_name'), col(up, 'last_name'), col(up, 'age'), col(up, 'gender'),
+              col(up, 'height_cm'), col(up, 'weight_kg'), col(up, 'goal'), col(up, 'fitness_level'),
+              col(up, 'training_days'), col(up, 'session_duration'), col(up, 'equipment'),
+              col(up, 'created_at'), col(up, 'updated_at')]]);
+        }
+      });
 
       return { success: true };
     } catch (e) {
-      return { success: false, error: 'Failed to parse backup data' };
+      return { success: false, error: 'Import failed. No data was changed.' };
     }
   }
 }
 
+/**
+ * Returns today's date as a local date string (YYYY-MM-DD).
+ * Note: Despite the name "ISO", this returns LOCAL date, not UTC.
+ * This is for backward compatibility with existing screens.
+ * @deprecated Use todayLocal() directly for clarity.
+ */
 export function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return todayLocal();
 }
 
 export function timeNow(): string {
@@ -624,7 +686,5 @@ export function timeNow(): string {
 }
 
 export function dateDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return dateDaysAgoLocal(days);
 }

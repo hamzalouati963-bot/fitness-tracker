@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { DailyLogRepository } from '../database/repositories';
+import { todayLocal } from '../utils/dates';
 
 interface JournalScreenProps {
   navigation: any;
 }
 
 export default function JournalScreen({ navigation }: JournalScreenProps) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
 
   const [weight, setWeight] = useState('');
   const [sleep, setSleep] = useState('');
