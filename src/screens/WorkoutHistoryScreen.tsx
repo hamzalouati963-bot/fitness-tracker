@@ -12,7 +12,7 @@ interface SessionSummary {
   id: number;
   date: string;
   name: string;
-  duration: number;
+  duration: number | null;
   exercises: number;
   sets: number;
   volume: number;
@@ -58,7 +58,7 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
         </View>
         <View style={styles.durationBadge}>
           <Icon name="schedule" size={14} color="#6B7280" />
-          <Text style={styles.durationText}>{item.duration > 0 ? formatDuration(item.duration) : '—'}</Text>
+          <Text style={styles.durationText}>{item.duration != null && item.duration > 0 ? formatDuration(item.duration) : '—'}</Text>
         </View>
       </View>
 
