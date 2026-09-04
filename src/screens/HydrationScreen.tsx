@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { hydrationRepo, settingsRepo } from '../database/repositories';
 import { todayISO, timeNow } from '../services';
@@ -58,6 +58,29 @@ export default function HydrationScreen({ navigation }: MoreScreenProps<'Hydrati
     }
   };
 
+  const [editingEntry, setEditingEntry] = useState<{ id: number; amount: number } | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+
+  const handleEditEntry = (entry: { id: number; amount: number }) => {
+    setEditingEntry(entry);
+    setEditAmount(String(Math.round(entry.amount * 1000)));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEntry) return;
+    const error = validateWaterMl(editAmount);
+    if (error) { Alert.alert('Invalid Input', error); return; }
+    const ml = parseFloat(editAmount);
+    try {
+      await hydrationRepo.updateEntry(editingEntry.id, ml);
+      setEditingEntry(null);
+      await loadData();
+    } catch (e) {
+      console.error('Failed to update entry:', e);
+      Alert.alert('Error', 'Failed to update entry.');
+    }
+  };
+
   const addCustom = () => {
     const error = validateWaterMl(customAmount);
     if (error) { Alert.alert('Invalid Input', error); return; }
@@ -69,9 +92,10 @@ export default function HydrationScreen({ navigation }: MoreScreenProps<'Hydrati
   const progress = Math.min(100, (currentLiters / targetLiters) * 100);
 
   return (
-    <ScrollView style={styles.container}>
+    <>
+    <ScrollView style={styles.container} keyboardDismissMode="on-drag">
       <View style={styles.header}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hydration</Text>
@@ -148,14 +172,19 @@ export default function HydrationScreen({ navigation }: MoreScreenProps<'Hydrati
                   <Text style={styles.logEntryTime}>{entry.time}</Text>
                   <Text style={styles.logEntryAmount}>{entry.amount >= 1 ? `${entry.amount.toFixed(1)} L` : `${(entry.amount * 1000).toFixed(0)} ml`}</Text>
                 </View>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove water entry" onPress={() => {
-                  Alert.alert('Remove Entry', 'Remove this water entry?', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => removeEntry(entry.id) },
-                  ]);
-                }} style={styles.logEntryRemove}>
-                  <Icon name="close" size={16} color="#9CA3AF" />
-                </TouchableOpacity>
+                <View style={styles.logEntryActions}>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Edit water entry" onPress={() => handleEditEntry(entry)} style={styles.logEntryEdit}>
+                    <Icon name="edit" size={14} color="#2563EB" />
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove water entry" onPress={() => {
+                    Alert.alert('Remove Entry', 'Remove this water entry?', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Remove', style: 'destructive', onPress: () => removeEntry(entry.id) },
+                    ]);
+                  }} style={styles.logEntryRemove}>
+                    <Icon name="close" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
@@ -164,6 +193,33 @@ export default function HydrationScreen({ navigation }: MoreScreenProps<'Hydrati
 
       <View style={styles.spacer} />
     </ScrollView>
+
+    <Modal visible={!!editingEntry} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Edit Amount</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={editAmount}
+            onChangeText={setEditAmount}
+            keyboardType="number-pad"
+            placeholder="Amount in ml"
+            placeholderTextColor="#9CA3AF"
+            autoFocus
+          />
+          <Text style={styles.modalHint}>Enter amount in milliliters</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setEditingEntry(null)}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveEdit}>
+              <Text style={styles.modalSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -363,7 +419,72 @@ const styles = StyleSheet.create({
   logEntryRemove: {
     padding: 8,
   },
+  logEntryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logEntryEdit: {
+    padding: 8,
+  },
   spacer: {
     height: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 320,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 18,
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalHint: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  modalSaveBtn: {
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  modalSaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

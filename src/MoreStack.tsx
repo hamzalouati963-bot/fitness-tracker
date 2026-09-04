@@ -21,6 +21,7 @@ import CustomWorkoutsScreen from './screens/CustomWorkoutsScreen';
 import CreateCustomWorkoutScreen from './screens/CreateCustomWorkoutScreen';
 import ExercisePickerScreen from './screens/ExercisePickerScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import CustomFoodsScreen from './screens/CustomFoodsScreen';
 
 const Stack = createStackNavigator<MoreStackParamList>();
 
@@ -45,6 +46,7 @@ const menuItems: MoreMenuItem[] = [
   { id: 'custom_workouts', label: 'My Workouts', icon: 'create', screen: 'CustomWorkouts', color: '#8B5CF6' },
   { id: 'history', label: 'Workout History', icon: 'history', screen: 'WorkoutHistory', color: '#65A30D' },
   { id: 'foods', label: 'Food Database', icon: 'restaurant', screen: 'FoodSearch', color: '#CA8A04' },
+  { id: 'custom_foods', label: 'Custom Foods', icon: 'restaurant-menu', screen: 'CustomFoods', color: '#D97706' },
   { id: 'suggestions', label: 'Suggestions', icon: 'lightbulb', screen: 'Recommendations', color: '#F59E0B' },
   { id: 'weekly', label: 'Weekly Review', icon: 'assessment', screen: 'WeeklyReview', color: '#7C3AED' },
 ];
@@ -84,6 +86,7 @@ export default function MoreStack() {
       <Stack.Screen name="Programs" component={ProgramsScreen} />
       <Stack.Screen name="WorkoutHistory" component={WorkoutHistoryScreen} />
       <Stack.Screen name="FoodSearch" component={FoodSearchScreen} />
+      <Stack.Screen name="CustomFoods" component={CustomFoodsScreen} />
       <Stack.Screen name="Recommendations" component={RecommendationScreen} />
       <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
@@ -98,8 +101,8 @@ function MoreHomeScreen({ navigation }: MoreScreenProps<'MoreHome'>) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="chevron-left" size={24} color="#1F2937" />
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>More Options</Text>
         <View style={{ width: 24 }} />
@@ -144,7 +147,7 @@ function MoreHomeScreen({ navigation }: MoreScreenProps<'MoreHome'>) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>ANALYTICS & CONFIG</Text>
         <View style={styles.menuGrid}>
-          {menuItems.filter(item => ['calculators', 'foods', 'suggestions', 'weekly', 'settings'].includes(item.id)).map((item) => (
+          {menuItems.filter(item => ['calculators', 'foods', 'custom_foods', 'suggestions', 'weekly', 'settings'].includes(item.id)).map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuCard}

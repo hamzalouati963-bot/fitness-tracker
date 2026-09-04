@@ -222,7 +222,7 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
     setImportModalVisible(true);
   };
 
-  const clearAllData = () => {
+  const confirmClearAllData = () => {
     Alert.alert(
       'Clear All Data',
       'This will permanently delete ALL your data: workouts, meals, measurements, journal, goals and your profile.\n\nThis cannot be undone.',
@@ -246,9 +246,9 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardDismissMode="on-drag">
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -523,7 +523,7 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
             <Icon name="file-upload" size={20} color="#2563EB" />
             <Text style={styles.backupButtonText}>Import Data</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.backupButton, styles.backupDanger]} onPress={clearAllData}>
+          <TouchableOpacity style={[styles.backupButton, styles.backupDanger]} onPress={confirmClearAllData}>
             <Icon name="delete-forever" size={20} color="#EF4444" />
             <Text style={[styles.backupButtonText, { color: '#EF4444' }]}>Clear All Data</Text>
           </TouchableOpacity>

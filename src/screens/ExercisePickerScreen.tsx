@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { exercises, type Exercise } from '../services';
@@ -35,19 +35,21 @@ export default function ExercisePickerScreen({ navigation }: MoreScreenProps<'Ex
     return compatible.includes(exercise.equipment);
   }, [userEquipment]);
 
-  const searchFiltered = query.trim()
-    ? exercises.filter(e =>
-        e.name.toLowerCase().includes(query.toLowerCase()) ||
-        e.muscle_group.toLowerCase().includes(query.toLowerCase()) ||
-        e.equipment.toLowerCase().includes(query.toLowerCase())
-      )
-    : exercises;
+  const filtered = useMemo(() => {
+    const searchFiltered = query.trim()
+      ? exercises.filter(e =>
+          e.name.toLowerCase().includes(query.toLowerCase()) ||
+          e.muscle_group.toLowerCase().includes(query.toLowerCase()) ||
+          e.equipment.toLowerCase().includes(query.toLowerCase())
+        )
+      : exercises;
 
-  const filtered = [...searchFiltered].sort((a, b) => {
-    const aCompatible = isCompatible(a) ? 0 : 1;
-    const bCompatible = isCompatible(b) ? 0 : 1;
-    return aCompatible - bCompatible;
-  });
+    return [...searchFiltered].sort((a, b) => {
+      const aCompatible = isCompatible(a) ? 0 : 1;
+      const bCompatible = isCompatible(b) ? 0 : 1;
+      return aCompatible - bCompatible;
+    });
+  }, [query, isCompatible]);
 
   const handleSelect = (exercise: Exercise) => {
     setPendingExercise(exercise);
@@ -69,7 +71,7 @@ export default function ExercisePickerScreen({ navigation }: MoreScreenProps<'Ex
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Pick Exercise</Text>
@@ -119,6 +121,10 @@ export default function ExercisePickerScreen({ navigation }: MoreScreenProps<'Ex
           );
         }}
         contentContainerStyle={styles.list}
+        removeClippedSubviews
+        maxToRenderPerBatch={15}
+        windowSize={11}
+        initialNumToRender={15}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Icon name="search-off" size={48} color="#D1D5DB" />

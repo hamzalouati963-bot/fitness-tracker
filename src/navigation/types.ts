@@ -30,6 +30,7 @@ export type MoreStackParamList = {
   ExercisePicker: undefined;
   WorkoutHistory: undefined;
   FoodSearch: undefined;
+  CustomFoods: undefined;
   Recommendations: undefined;
   WeeklyReview: undefined;
 };

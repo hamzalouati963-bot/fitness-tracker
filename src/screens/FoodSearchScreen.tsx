@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput } 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { nutritionRepo, dailyLogRepo } from '../database/repositories';
 import { foods, todayISO, type Food } from '../services';
-import type { MealType } from '../models';
+import type { MealType, CustomFood } from '../models';
 import type { MoreScreenProps } from '../navigation/types';
 
 const MEAL_TYPES: { id: MealType; label: string; icon: string }[] = [
@@ -20,16 +20,42 @@ export default function FoodSearchScreen({ navigation }: MoreScreenProps<'FoodSe
   const [quantity, setQuantity] = useState('');
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
 
+  const [customFoodsList, setCustomFoodsList] = useState<Food[]>([]);
+
+  useEffect(() => {
+    const loadCustomFoods = async () => {
+      try {
+        const customs = await nutritionRepo.getCustomFoods();
+        const mapped: Food[] = customs.map((cf: CustomFood) => ({
+          id: `custom_${cf.id}`,
+          name: cf.name,
+          serving_size: cf.serving_size,
+          unit: cf.unit,
+          calories: cf.calories,
+          protein_g: cf.protein_g,
+          carbs_g: cf.carbs_g,
+          fat_g: cf.fat_g,
+        }));
+        setCustomFoodsList(mapped);
+      } catch (e) {
+        console.error('Failed to load custom foods:', e);
+      }
+    };
+    loadCustomFoods();
+  }, []);
+
   useEffect(() => {
     if (search.trim().length > 0) {
-      const filtered = foods
-        .filter(f => f.name.toLowerCase().includes(search.trim().toLowerCase()))
+      const q = search.trim().toLowerCase();
+      const allFoods = [...foods, ...customFoodsList];
+      const filtered = allFoods
+        .filter(f => f.name.toLowerCase().includes(q))
         .slice(0, 50);
       setResults(filtered);
     } else {
       setResults([]);
     }
-  }, [search]);
+  }, [search, customFoodsList]);
 
   const markNutritionLogged = async () => {
     try {
@@ -108,7 +134,7 @@ export default function FoodSearchScreen({ navigation }: MoreScreenProps<'FoodSe
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Food Database</Text>

@@ -176,6 +176,8 @@ async function runMigrations() {
     `CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(date)`,
     `CREATE INDEX IF NOT EXISTS idx_hydration_entries_date ON hydration_entries(date)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_foods_name ON custom_foods(name)`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
     `CREATE TABLE IF NOT EXISTS custom_workouts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,

@@ -144,7 +144,7 @@ export default function ProfileScreen({ navigation }: MoreScreenProps<'Profile'>
 
   if (editing) {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} keyboardDismissMode="on-drag">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => { setEditing(false); loadProfile(); }}>
             <Icon name="close" size={24} color="#1F2937" />
@@ -157,17 +157,17 @@ export default function ProfileScreen({ navigation }: MoreScreenProps<'Profile'>
 
         <View style={styles.field}>
           <Text style={styles.label}>First Name</Text>
-          <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} />
+          <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="e.g. Hamza" placeholderTextColor="#9CA3AF" />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Last Name</Text>
-          <TextInput style={styles.input} value={lastName} onChangeText={setLastName} />
+          <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="e.g. Louati" placeholderTextColor="#9CA3AF" />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Age</Text>
-          <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" />
+          <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="e.g. 25" placeholderTextColor="#9CA3AF" />
         </View>
 
         <View style={styles.field}>
@@ -183,12 +183,12 @@ export default function ProfileScreen({ navigation }: MoreScreenProps<'Profile'>
 
         <View style={styles.field}>
           <Text style={styles.label}>Height (cm)</Text>
-          <TextInput style={styles.input} value={height} onChangeText={setHeight} keyboardType="numeric" />
+          <TextInput style={styles.input} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="e.g. 175" placeholderTextColor="#9CA3AF" />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Weight (kg)</Text>
-          <TextInput style={styles.input} value={weight} onChangeText={setWeight} keyboardType="numeric" />
+          <TextInput style={styles.input} value={weight} onChangeText={setWeight} keyboardType="numeric" placeholder="e.g. 75" placeholderTextColor="#9CA3AF" />
         </View>
 
         <View style={styles.field}>
@@ -252,9 +252,9 @@ export default function ProfileScreen({ navigation }: MoreScreenProps<'Profile'>
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardDismissMode="on-drag">
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>

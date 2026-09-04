@@ -240,9 +240,9 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
 
   if (showExerciseEditor && editingExercise) {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} keyboardDismissMode="on-drag">
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => { setShowExerciseEditor(false); setEditingExercise(null); }}>
+          <TouchableOpacity onPress={() => { setShowExerciseEditor(false); setEditingExercise(null); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Icon name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Exercise Settings</Text>
@@ -360,9 +360,9 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardDismissMode="on-drag">
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEditing ? 'Edit Workout' : 'Create Workout'}</Text>

@@ -196,7 +196,7 @@ export default function WorkoutScreen({ navigation, route }: TabScreenProps<'Wor
 
   if (!currentExercise) {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} keyboardDismissMode="on-drag">
         <View style={styles.header}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close" onPress={() => navigation.goBack()}>
             <Icon name="close" size={24} color="#1F2937" />
@@ -218,7 +218,7 @@ export default function WorkoutScreen({ navigation, route }: TabScreenProps<'Wor
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardDismissMode="on-drag">
       <View style={styles.header}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close workout" onPress={() => navigation.navigate('Home')}>
           <Icon name="close" size={24} color="#1F2937" />

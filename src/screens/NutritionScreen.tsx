@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { nutritionRepo, settingsRepo } from '../database/repositories';
-import { todayISO } from '../services';
-import type { Meal, MealItem } from '../models';
+import { todayISO, foods } from '../services';
+import type { Meal, MealItem, CustomFood } from '../models';
 import {
   DEFAULT_CALORIE_GOAL,
   DEFAULT_PROTEIN_GOAL_G,
@@ -142,6 +142,66 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
     ]);
   };
 
+  const [editingItem, setEditingItem] = useState<MealItem | null>(null);
+  const [editQuantity, setEditQuantity] = useState('');
+
+  const handleEditItem = (item: MealItem) => {
+    setEditingItem(item);
+    setEditQuantity(String(item.quantity));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem?.id) return;
+    const qty = parseFloat(editQuantity);
+    if (isNaN(qty) || qty <= 0) {
+      Alert.alert('Invalid Quantity', 'Quantity must be greater than 0.');
+      return;
+    }
+
+    // Try built-in foods first, then custom foods
+    let nutritionRef: { serving_size: number; calories: number; protein_g: number; carbs_g: number; fat_g: number } | null = null;
+    const builtIn = foods.find(f => f.id === editingItem.food_id);
+    if (builtIn) {
+      nutritionRef = builtIn;
+    } else {
+      const customFoods = await nutritionRepo.getCustomFoods();
+      const customFood = customFoods.find(f => String(f.id) === editingItem.food_id);
+      if (customFood) {
+        nutritionRef = {
+          serving_size: customFood.serving_size,
+          calories: customFood.calories,
+          protein_g: customFood.protein_g,
+          carbs_g: customFood.carbs_g,
+          fat_g: customFood.fat_g,
+        };
+      }
+    }
+
+    if (!nutritionRef) {
+      Alert.alert('Error', 'Original food data not found.');
+      setEditingItem(null);
+      return;
+    }
+
+    const multiplier = qty / nutritionRef.serving_size;
+    const updates = {
+      quantity: qty,
+      calories: Math.round(nutritionRef.calories * multiplier),
+      protein_g: Math.round(nutritionRef.protein_g * multiplier * 10) / 10,
+      carbs_g: Math.round(nutritionRef.carbs_g * multiplier * 10) / 10,
+      fat_g: Math.round(nutritionRef.fat_g * multiplier * 10) / 10,
+    };
+
+    try {
+      await nutritionRepo.updateMealItem(editingItem.id, updates);
+      setEditingItem(null);
+      await loadNutritionData();
+    } catch (e) {
+      console.error('Failed to update meal item:', e);
+      Alert.alert('Error', 'Failed to update food item.');
+    }
+  };
+
   const renderMeal = ({ item }: { item: MealWithTotals }) => (
     <View style={styles.mealCard}>
       <View style={styles.mealHeader}>
@@ -168,6 +228,9 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
               <View style={styles.foodItemRight}>
                 <Text style={styles.foodCaloriesSmall}>{Math.round(itemFood.calories)} kcal</Text>
               </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Edit ${itemFood.food_name}`} onPress={() => handleEditItem(itemFood)} style={styles.foodEditButton}>
+                <Icon name="edit" size={14} color="#2563EB" />
+              </TouchableOpacity>
               <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Remove ${itemFood.food_name}`} onPress={() => handleDeleteMealItem(itemFood.id)} style={styles.foodDeleteButton}>
                 <Icon name="close" size={16} color="#EF4444" />
               </TouchableOpacity>
@@ -198,15 +261,21 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
   );
 
   return (
+    <>
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search foods" accessibilityHint="Opens food search" onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
           <Icon name="search" size={24} color="#2563EB" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nutrition</Text>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add food" accessibilityHint="Opens food search to add a food item" onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
-          <Icon name="add-circle" size={24} color="#2563EB" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Custom foods" accessibilityHint="Manage custom foods" onPress={() => navigation.navigate('More', { screen: 'CustomFoods' })}>
+            <Icon name="restaurant-menu" size={22} color="#D97706" />
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add food" accessibilityHint="Opens food search to add a food item" onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
+            <Icon name="add-circle" size={24} color="#2563EB" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.dailySummary}>
@@ -282,6 +351,34 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
 
       <View style={styles.spacer} />
     </ScrollView>
+
+    <Modal visible={!!editingItem} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Edit Quantity</Text>
+          <Text style={styles.modalFoodName}>{editingItem?.food_name}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={editQuantity}
+            onChangeText={setEditQuantity}
+            keyboardType="decimal-pad"
+            placeholder="Quantity"
+            placeholderTextColor="#9CA3AF"
+            autoFocus
+          />
+          <Text style={styles.modalUnit}>Unit: {editingItem?.unit || 'g'}</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setEditingItem(null)}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveEdit}>
+              <Text style={styles.modalSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -510,7 +607,74 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     padding: 4,
   },
+  foodEditButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
   spacer: {
     height: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 320,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalFoodName: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 18,
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalUnit: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  modalSaveBtn: {
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  modalSaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

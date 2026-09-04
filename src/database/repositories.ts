@@ -294,6 +294,14 @@ export class NutritionRepository {
     await db.runAsync('DELETE FROM meal_items WHERE id = ?', [id]);
   }
 
+  async updateMealItem(id: number, updates: { quantity: number; calories: number; protein_g: number; carbs_g: number; fat_g: number }): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync(
+      'UPDATE meal_items SET quantity = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ? WHERE id = ?',
+      [updates.quantity, updates.calories, updates.protein_g, updates.carbs_g, updates.fat_g, id]
+    );
+  }
+
   async getDailyNutrition(date: string): Promise<{ calories: number; protein: number; carbs: number; fat: number }> {
     const db = await getDatabase();
     const result = await db.getFirstAsync<{ calories: number; protein: number; carbs: number; fat: number }>(
@@ -357,6 +365,14 @@ export class NutritionRepository {
   async deleteCustomFood(id: number): Promise<void> {
     const db = await getDatabase();
     await db.runAsync('DELETE FROM custom_foods WHERE id = ?', [id]);
+  }
+
+  async updateCustomFood(id: number, food: Omit<CustomFood, 'id' | 'created_at'>): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync(
+      `UPDATE custom_foods SET name = ?, serving_size = ?, unit = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ? WHERE id = ?`,
+      [food.name, food.serving_size, food.unit, food.calories, food.protein_g, food.carbs_g, food.fat_g, id]
+    );
   }
 
   async getAllMeals(): Promise<Meal[]> {
@@ -558,7 +574,7 @@ export class DailyLogRepository {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     const result = await db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) as count FROM daily_logs WHERE water_liters > 0 AND date >= ?',
+      'SELECT COUNT(DISTINCT date) as count FROM hydration_entries WHERE date >= ?',
       [formatDateLocal(startDate)]
     );
     return result?.count ?? 0;
@@ -602,6 +618,12 @@ export class HydrationRepository {
   async deleteEntry(id: number): Promise<void> {
     const db = await getDatabase();
     await db.runAsync('DELETE FROM hydration_entries WHERE id = ?', [id]);
+  }
+
+  async updateEntry(id: number, amount_ml: number): Promise<void> {
+    const db = await getDatabase();
+    const amount_liters = amount_ml / 1000;
+    await db.runAsync('UPDATE hydration_entries SET amount_liters = ? WHERE id = ?', [amount_liters, id]);
   }
 }
 
