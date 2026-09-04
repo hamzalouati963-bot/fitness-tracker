@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { hydrationRepo, settingsRepo } from '../database/repositories';
 import { todayISO, timeNow } from '../services';
+import type { MoreScreenProps } from '../navigation/types';
+import { validateWaterMl } from '../utils/validation';
 
-interface HydrationScreenProps {
-  navigation: any;
-}
-
-export default function HydrationScreen({ navigation }: HydrationScreenProps) {
+export default function HydrationScreen({ navigation }: MoreScreenProps<'Hydration'>) {
   const [currentLiters, setCurrentLiters] = useState(0);
   const [targetLiters, setTargetLiters] = useState(2.5);
   const [entries, setEntries] = useState<{ time: string; amount: number; id: number }[]>([]);
@@ -27,6 +25,7 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
       setEntries(todayEntries.map(e => ({ time: e.time, amount: e.amount_liters, id: e.id! })));
     } catch (e) {
       console.error('Failed to load hydration:', e);
+      Alert.alert('Error', 'Failed to load hydration data.');
     }
   }, []);
 
@@ -45,6 +44,7 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
       await loadData();
     } catch (e) {
       console.error('Failed to add water:', e);
+      Alert.alert('Error', 'Failed to add water entry. Please try again.');
     }
   };
 
@@ -54,15 +54,16 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
       await loadData();
     } catch (e) {
       console.error('Failed to remove entry:', e);
+      Alert.alert('Error', 'Failed to remove entry. Please try again.');
     }
   };
 
   const addCustom = () => {
+    const error = validateWaterMl(customAmount);
+    if (error) { Alert.alert('Invalid Input', error); return; }
     const ml = parseFloat(customAmount);
-    if (ml && ml > 0 && ml <= 2000) {
-      addWater(ml);
-      setCustomAmount('');
-    }
+    addWater(ml);
+    setCustomAmount('');
   };
 
   const progress = Math.min(100, (currentLiters / targetLiters) * 100);
@@ -70,7 +71,7 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hydration</Text>
@@ -103,6 +104,8 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
           ].map((btn) => (
             <TouchableOpacity
               key={btn.amount}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${btn.label} of water`}
               style={styles.quickButton}
               onPress={() => addWater(btn.amount)}
             >
@@ -116,6 +119,7 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
         <Text style={styles.sectionTitle}>CUSTOM AMOUNT</Text>
         <View style={styles.customInputRow}>
           <TextInput
+            accessibilityLabel="Custom water amount in milliliters"
             style={styles.customInput}
             value={customAmount}
             onChangeText={setCustomAmount}
@@ -123,7 +127,7 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
             placeholder="0"
           />
           <Text style={styles.customUnit}>ml</Text>
-          <TouchableOpacity style={styles.addCustomButton} onPress={addCustom}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add custom amount" style={styles.addCustomButton} onPress={addCustom}>
             <Text style={styles.addCustomText}>Add</Text>
           </TouchableOpacity>
         </View>
@@ -144,7 +148,12 @@ export default function HydrationScreen({ navigation }: HydrationScreenProps) {
                   <Text style={styles.logEntryTime}>{entry.time}</Text>
                   <Text style={styles.logEntryAmount}>{entry.amount >= 1 ? `${entry.amount.toFixed(1)} L` : `${(entry.amount * 1000).toFixed(0)} ml`}</Text>
                 </View>
-                <TouchableOpacity onPress={() => removeEntry(entry.id)} style={styles.logEntryRemove}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove water entry" onPress={() => {
+                  Alert.alert('Remove Entry', 'Remove this water entry?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Remove', style: 'destructive', onPress: () => removeEntry(entry.id) },
+                  ]);
+                }} style={styles.logEntryRemove}>
                   <Icon name="close" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>

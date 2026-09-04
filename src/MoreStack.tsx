@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import type { MoreStackParamList } from './navigation/types';
+import type { MoreScreenProps } from './navigation/types';
 
 import GoalsScreen from './screens/GoalsScreen';
 import CalculatorsScreen from './screens/CalculatorsScreen';
@@ -20,9 +22,17 @@ import CreateCustomWorkoutScreen from './screens/CreateCustomWorkoutScreen';
 import ExercisePickerScreen from './screens/ExercisePickerScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<MoreStackParamList>();
 
-const menuItems = [
+type MoreMenuItem = {
+  id: string;
+  label: string;
+  icon: string;
+  screen: keyof MoreStackParamList;
+  color: string;
+};
+
+const menuItems: MoreMenuItem[] = [
   { id: 'goals', label: 'Goals', icon: 'flag', screen: 'Goals', color: '#2563EB' },
   { id: 'calculators', label: 'Calculators', icon: 'calculate', screen: 'Calculators', color: '#059669' },
   { id: 'journal', label: 'Journal', icon: 'edit', screen: 'Journal', color: '#7C3AED' },
@@ -84,7 +94,7 @@ export default function MoreStack() {
   );
 }
 
-function MoreHomeScreen({ navigation }: { navigation: any }) {
+function MoreHomeScreen({ navigation }: MoreScreenProps<'MoreHome'>) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>

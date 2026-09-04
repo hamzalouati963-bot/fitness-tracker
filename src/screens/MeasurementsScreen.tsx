@@ -2,14 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { measurementRepo, settingsRepo } from '../database/repositories';
+import { validateWeight, validatePositiveNumber } from '../utils/validation';
 import { todayISO } from '../services';
 import type { BodyMeasurement } from '../models';
+import type { MoreScreenProps } from '../navigation/types';
 
-interface MeasurementsScreenProps {
-  navigation: any;
-}
-
-export default function MeasurementsScreen({ navigation }: MeasurementsScreenProps) {
+export default function MeasurementsScreen({ navigation }: MoreScreenProps<'Measurements'>) {
   const [latest, setLatest] = useState<BodyMeasurement | null>(null);
   const [history, setHistory] = useState<BodyMeasurement[]>([]);
   const [height, setHeight] = useState(180);
@@ -36,6 +34,7 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
       setHistory(historyData);
     } catch (e) {
       console.error('Failed to load measurements:', e);
+      Alert.alert('Error', 'Failed to load measurements.');
     }
   }, []);
 
@@ -49,6 +48,38 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
     if (!form.weight && !form.body_fat) {
       Alert.alert('Error', 'At least weight or body fat must be entered');
       return;
+    }
+
+    if (form.weight) {
+      const error = validateWeight(form.weight);
+      if (error) { Alert.alert('Invalid Input', error); return; }
+    }
+    if (form.waist) {
+      const error = validatePositiveNumber(form.waist, 'Waist');
+      if (error) { Alert.alert('Invalid Input', error); return; }
+    }
+    if (form.chest) {
+      const error = validatePositiveNumber(form.chest, 'Chest');
+      if (error) { Alert.alert('Invalid Input', error); return; }
+    }
+    if (form.arm) {
+      const error = validatePositiveNumber(form.arm, 'Arm');
+      if (error) { Alert.alert('Invalid Input', error); return; }
+    }
+    if (form.thigh) {
+      const error = validatePositiveNumber(form.thigh, 'Thigh');
+      if (error) { Alert.alert('Invalid Input', error); return; }
+    }
+    if (form.body_fat) {
+      const num = parseFloat(form.body_fat);
+      if (isNaN(num) || num < 0 || num > 100) {
+        Alert.alert('Invalid Input', 'Body fat must be between 0 and 100');
+        return;
+      }
+    }
+    if (form.muscle_mass) {
+      const error = validatePositiveNumber(form.muscle_mass, 'Muscle mass');
+      if (error) { Alert.alert('Invalid Input', error); return; }
     }
 
     try {
@@ -77,7 +108,27 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
       Alert.alert('Saved', 'Measurement recorded successfully');
     } catch (e) {
       console.error('Failed to save measurement:', e);
+      Alert.alert('Error', 'Failed to save measurement. Please try again.');
     }
+  };
+
+  const deleteMeasurement = (id: number) => {
+    Alert.alert('Delete Measurement', 'Are you sure you want to delete this measurement?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await measurementRepo.deleteMeasurement(id);
+            await loadMeasurements();
+          } catch (e) {
+            console.error('Failed to delete measurement:', e);
+            Alert.alert('Error', 'Failed to delete measurement.');
+          }
+        },
+      },
+    ]);
   };
 
   const bmi = form.weight && parseFloat(form.weight) > 0
@@ -89,7 +140,7 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Measurements</Text>
@@ -127,7 +178,12 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
         ) : (
           history.map((entry) => (
             <View key={entry.id} style={styles.historyEntry}>
-              <Text style={styles.historyDate}>{entry.date}</Text>
+              <View style={styles.historyEntryHeader}>
+                <Text style={styles.historyDate}>{entry.date}</Text>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete measurement" accessibilityHint="Deletes this measurement record" onPress={() => entry.id != null && deleteMeasurement(entry.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Icon name="delete" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
               <View style={styles.historyMetrics}>
                 {entry.weight_kg && <Text style={styles.historyMetric}>{entry.weight_kg} kg</Text>}
                 {entry.body_fat_percent && <Text style={styles.historyMetric}>BF: {entry.body_fat_percent}%</Text>}
@@ -145,50 +201,50 @@ export default function MeasurementsScreen({ navigation }: MeasurementsScreenPro
         <View style={styles.formRow}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Weight (kg)</Text>
-            <TextInput style={styles.input} value={form.weight} onChangeText={(t) => setForm({ ...form, weight: t })} keyboardType="decimal-pad" placeholder="0" />
+            <TextInput accessibilityLabel="Weight in kilograms" style={styles.input} value={form.weight} onChangeText={(t) => setForm({ ...form, weight: t })} keyboardType="decimal-pad" placeholder="0" />
           </View>
           {bmi && <View style={[styles.inputGroup, { justifyContent: 'center' }]}><Text style={styles.autoBmi}>BMI: {bmi}</Text></View>}
         </View>
         <View style={styles.formRow}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Waist (cm)</Text>
-            <TextInput style={styles.input} value={form.waist} onChangeText={(t) => setForm({ ...form, waist: t })} keyboardType="decimal-pad" placeholder="Optional" />
+            <TextInput accessibilityLabel="Waist measurement in centimeters" style={styles.input} value={form.waist} onChangeText={(t) => setForm({ ...form, waist: t })} keyboardType="decimal-pad" placeholder="Optional" />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Chest (cm)</Text>
-            <TextInput style={styles.input} value={form.chest} onChangeText={(t) => setForm({ ...form, chest: t })} keyboardType="decimal-pad" placeholder="Optional" />
+            <TextInput accessibilityLabel="Chest measurement in centimeters" style={styles.input} value={form.chest} onChangeText={(t) => setForm({ ...form, chest: t })} keyboardType="decimal-pad" placeholder="Optional" />
           </View>
         </View>
         <View style={styles.formRow}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Arm (cm)</Text>
-            <TextInput style={styles.input} value={form.arm} onChangeText={(t) => setForm({ ...form, arm: t })} keyboardType="decimal-pad" placeholder="Optional" />
+            <TextInput accessibilityLabel="Arm measurement in centimeters" style={styles.input} value={form.arm} onChangeText={(t) => setForm({ ...form, arm: t })} keyboardType="decimal-pad" placeholder="Optional" />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Thigh (cm)</Text>
-            <TextInput style={styles.input} value={form.thigh} onChangeText={(t) => setForm({ ...form, thigh: t })} keyboardType="decimal-pad" placeholder="Optional" />
+            <TextInput accessibilityLabel="Thigh measurement in centimeters" style={styles.input} value={form.thigh} onChangeText={(t) => setForm({ ...form, thigh: t })} keyboardType="decimal-pad" placeholder="Optional" />
           </View>
         </View>
         <View style={styles.formRow}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Body Fat (%)</Text>
-            <TextInput style={styles.input} value={form.body_fat} onChangeText={(t) => setForm({ ...form, body_fat: t })} keyboardType="decimal-pad" placeholder="Optional" />
+            <TextInput accessibilityLabel="Body fat percentage" style={styles.input} value={form.body_fat} onChangeText={(t) => setForm({ ...form, body_fat: t })} keyboardType="decimal-pad" placeholder="Optional" />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Muscle Mass (kg)</Text>
-            <TextInput style={styles.input} value={form.muscle_mass} onChangeText={(t) => setForm({ ...form, muscle_mass: t })} keyboardType="decimal-pad" placeholder="Optional" />
+            <TextInput accessibilityLabel="Muscle mass in kilograms" style={styles.input} value={form.muscle_mass} onChangeText={(t) => setForm({ ...form, muscle_mass: t })} keyboardType="decimal-pad" placeholder="Optional" />
           </View>
         </View>
         <Text style={styles.inputLabel}>Source</Text>
         <View style={styles.sourceRow}>
           {sources.map((s) => (
-            <TouchableOpacity key={s} style={[styles.sourceChip, form.source === s && styles.sourceChipActive]} onPress={() => setForm({ ...form, source: s })}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Source: ${s}`} accessibilityState={{ selected: form.source === s }} key={s} style={[styles.sourceChip, form.source === s && styles.sourceChipActive]} onPress={() => setForm({ ...form, source: s })}>
               <Text style={[styles.sourceChipText, form.source === s && styles.sourceChipTextActive]}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <TextInput style={styles.notesInput} placeholder="Notes (optional)" value={form.notes} onChangeText={(t) => setForm({ ...form, notes: t })} />
-        <TouchableOpacity style={styles.saveButton} onPress={saveMeasurement}>
+        <TextInput accessibilityLabel="Notes" style={styles.notesInput} placeholder="Notes (optional)" value={form.notes} onChangeText={(t) => setForm({ ...form, notes: t })} />
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Save measurement" style={styles.saveButton} onPress={saveMeasurement}>
           <Text style={styles.saveButtonText}>Save Measurement</Text>
         </TouchableOpacity>
       </View>
@@ -215,6 +271,7 @@ const styles = StyleSheet.create({
   emptyHistory: { fontSize: 13, color: '#9CA3AF', padding: 8, textAlign: 'center' },
   sectionTitle: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', marginBottom: 12, marginLeft: 4 },
   historyEntry: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  historyEntryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   historyDate: { fontSize: 13, fontWeight: '600', color: '#6B7280', marginBottom: 4 },
   historyMetrics: { flexDirection: 'row', gap: 12, marginBottom: 2, flexWrap: 'wrap' },
   historyMetric: { fontSize: 13, color: '#1F2937', fontWeight: '500' },

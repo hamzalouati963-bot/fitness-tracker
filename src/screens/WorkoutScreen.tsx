@@ -4,13 +4,10 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { workoutRepo, dailyLogRepo } from '../database/repositories';
 import type { WorkoutExercise, WorkoutSet } from '../models';
 import { timeNow, todayLocal } from '../services';
+import type { TabScreenProps } from '../navigation/types';
+import { validateReps, validateExerciseWeight } from '../utils/validation';
 
-interface WorkoutScreenProps {
-  navigation: any;
-  route: any;
-}
-
-export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps) {
+export default function WorkoutScreen({ navigation, route }: TabScreenProps<'Workout'>) {
   const sessionId = route.params?.sessionId as number | undefined;
 
   const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>([]);
@@ -100,18 +97,13 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
   };
 
   const addSet = async () => {
-    if (!currentSet.weight || !currentSet.reps) {
-      Alert.alert('Invalid Input', 'Please enter weight and reps');
-      return;
-    }
+    const weightError = validateExerciseWeight(currentSet.weight);
+    if (weightError) { Alert.alert('Invalid Weight', weightError); return; }
+    const repsError = validateReps(currentSet.reps);
+    if (repsError) { Alert.alert('Invalid Reps', repsError); return; }
 
     const weight = parseFloat(currentSet.weight);
     const reps = parseInt(currentSet.reps);
-
-    if (isNaN(weight) || isNaN(reps) || weight <= 0 || reps <= 0) {
-      Alert.alert('Invalid Input', 'Weight and reps must be positive');
-      return;
-    }
 
     const exercise = workoutExercises[currentExerciseIndex];
     if (!exercise?.id) {
@@ -206,7 +198,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
     return (
       <ScrollView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close" onPress={() => navigation.goBack()}>
             <Icon name="close" size={24} color="#1F2937" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Workout</Text>
@@ -216,7 +208,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
           <Text style={styles.emptyIcon}>🏋️</Text>
           <Text style={styles.emptyTitle}>No Active Workout</Text>
           <Text style={styles.emptySubtitle}>Pick a program to start a session and track your sets.</Text>
-          <TouchableOpacity style={styles.startButton} onPress={startWorkout}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose a program" style={styles.startButton} onPress={startWorkout}>
             <Text style={styles.startButtonText}>Choose a Program</Text>
           </TouchableOpacity>
         </View>
@@ -228,7 +220,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close workout" onPress={() => navigation.navigate('Home')}>
           <Icon name="close" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Workout</Text>
@@ -239,6 +231,9 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
         {workoutExercises.map((ex, i) => (
           <TouchableOpacity
             key={ex.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Exercise ${i + 1}`}
+            accessibilityState={{ selected: i === currentExerciseIndex }}
             style={[styles.exercisePill, i === currentExerciseIndex && styles.exercisePillActive]}
             onPress={() => changeExercise(i)}
           >
@@ -279,6 +274,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Weight (kg)</Text>
             <TextInput
+              accessibilityLabel="Weight in kilograms"
               style={styles.input}
               value={currentSet.weight}
               onChangeText={(text) => setCurrentSet({ ...currentSet, weight: text })}
@@ -290,6 +286,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Reps</Text>
             <TextInput
+              accessibilityLabel="Number of repetitions"
               style={styles.input}
               value={currentSet.reps}
               onChangeText={(text) => setCurrentSet({ ...currentSet, reps: text })}
@@ -299,7 +296,7 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveSetButton} onPress={addSet}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Save set" style={styles.saveSetButton} onPress={addSet}>
           <Text style={styles.saveSetButtonText}>Save Set</Text>
         </TouchableOpacity>
       </View>
@@ -311,6 +308,8 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
           {[30, 60, 90, 120].map((seconds) => (
             <TouchableOpacity
               key={seconds}
+              accessibilityRole="button"
+              accessibilityLabel={`${seconds} second rest timer`}
               style={styles.timerButton}
               onPress={() => startRestTimer(seconds)}
             >
@@ -322,14 +321,14 @@ export default function WorkoutScreen({ navigation, route }: WorkoutScreenProps)
         {restTimer !== null && (
           <View style={styles.activeTimer}>
             <Text style={styles.activeTimerText}>{formatTime(timerSeconds)}</Text>
-            <TouchableOpacity style={styles.cancelTimerButton} onPress={cancelRestTimer}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel rest timer" style={styles.cancelTimerButton} onPress={cancelRestTimer}>
               <Text style={styles.cancelTimerText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      <TouchableOpacity style={styles.completeButton} onPress={completeExercise}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Complete exercise" style={styles.completeButton} onPress={completeExercise}>
         <Text style={styles.completeButtonText}>Complete Exercise</Text>
       </TouchableOpacity>
 

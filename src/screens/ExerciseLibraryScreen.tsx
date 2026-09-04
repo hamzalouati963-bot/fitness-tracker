@@ -2,10 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { exercises, type Exercise } from '../services';
-
-interface ExerciseLibraryScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
 
 const muscleGroups = [
   { id: 'chest', label: 'Chest', icon: '🏋️' },
@@ -40,7 +37,7 @@ const getEquipmentIcon = (e: string) => {
   }
 };
 
-export default function ExerciseLibraryScreen({ navigation }: ExerciseLibraryScreenProps) {
+export default function ExerciseLibraryScreen({ navigation }: MoreScreenProps<'Exercises'>) {
   const exercisesByGroup = (groupId: string): Exercise[] =>
     exercises.filter(e => e.muscle_group === groupId);
 

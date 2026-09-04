@@ -12,12 +12,9 @@ import {
   settingsRepo,
 } from '../database/repositories';
 import type { Recommendation } from '../models';
+import type { MoreScreenProps } from '../navigation/types';
 
-interface RecommendationScreenProps {
-  navigation: any;
-}
-
-export default function RecommendationScreen({ navigation }: RecommendationScreenProps) {
+export default function RecommendationScreen({ navigation }: MoreScreenProps<'Recommendations'>) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
 

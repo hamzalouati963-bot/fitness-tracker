@@ -3,12 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { workoutPrograms, exercises as exercisesData, todayISO, timeNow, type WorkoutProgram } from '../services';
 import { workoutRepo } from '../database/repositories';
+import type { MoreScreenProps } from '../navigation/types';
 
-interface ProgramsScreenProps {
-  navigation: any;
-}
-
-export default function ProgramsScreen({ navigation }: ProgramsScreenProps) {
+export default function ProgramsScreen({ navigation }: MoreScreenProps<'Programs'>) {
   const [selectedProgram, setSelectedProgram] = useState<string | null>(null);
 
   const getGoalIcon = (goal: string) => {

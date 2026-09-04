@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import type { TabParamList } from './navigation/types';
 
 import DashboardScreen from './screens/DashboardScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
@@ -13,7 +14,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import { getDatabase } from './database';
 import { userProfileRepo } from './database/repositories';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -66,8 +67,8 @@ export default function App() {
   return (
     <NavigationContainer>
       <Tab.Navigator
-        screenOptions={({ route }: { route: { name: string } }) => ({
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ color, size }) => {
             let icon: React.ReactNode;
 
             if (route.name === 'Home') {

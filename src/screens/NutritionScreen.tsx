@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { nutritionRepo, settingsRepo } from '../database/repositories';
 import { todayISO } from '../services';
@@ -10,10 +10,7 @@ import {
   DEFAULT_CARBS_GOAL_G,
   DEFAULT_FAT_GOAL_G,
 } from '../constants';
-
-interface NutritionScreenProps {
-  navigation: any;
-}
+import type { TabScreenProps } from '../navigation/types';
 
 interface MealWithTotals extends Meal {
   items: MealItem[];
@@ -23,7 +20,7 @@ interface MealWithTotals extends Meal {
   total_fat: number;
 }
 
-export default function NutritionScreen({ navigation }: NutritionScreenProps) {
+export default function NutritionScreen({ navigation }: TabScreenProps<'Nutrition'>) {
   const [meals, setMeals] = useState<MealWithTotals[]>([]);
   const [todaysNutrition, setTodaysNutrition] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [targets, setTargets] = useState({
@@ -85,6 +82,7 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
       });
     } catch (e) {
       console.error('Failed to load nutrition:', e);
+      Alert.alert('Error', 'Failed to load nutrition data.');
     }
   }, []);
 
@@ -104,6 +102,46 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
     }
   };
 
+  const handleDeleteMealItem = (itemId: number | undefined) => {
+    if (!itemId) return;
+    Alert.alert('Remove Item', 'Remove this food item from your log?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await nutritionRepo.deleteMealItem(itemId);
+            loadNutritionData();
+          } catch (e) {
+            console.error('Failed to delete meal item:', e);
+            Alert.alert('Error', 'Failed to remove food item.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteMeal = (mealId: number | undefined) => {
+    if (!mealId) return;
+    Alert.alert('Remove Meal', 'Remove this entire meal and all its items?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await nutritionRepo.deleteMeal(mealId);
+            loadNutritionData();
+          } catch (e) {
+            console.error('Failed to delete meal:', e);
+            Alert.alert('Error', 'Failed to delete meal.');
+          }
+        },
+      },
+    ]);
+  };
+
   const renderMeal = ({ item }: { item: MealWithTotals }) => (
     <View style={styles.mealCard}>
       <View style={styles.mealHeader}>
@@ -112,6 +150,9 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
         <View style={styles.mealCalories}>
           <Text style={styles.mealCaloriesText}>{Math.round(item.total_calories)} kcal</Text>
         </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete meal" accessibilityHint="Removes this entire meal" onPress={() => handleDeleteMeal(item.id)} style={styles.mealDeleteButton}>
+          <Icon name="delete" size={18} color="#EF4444" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.mealItems}>
@@ -127,6 +168,9 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
               <View style={styles.foodItemRight}>
                 <Text style={styles.foodCaloriesSmall}>{Math.round(itemFood.calories)} kcal</Text>
               </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Remove ${itemFood.food_name}`} onPress={() => handleDeleteMealItem(itemFood.id)} style={styles.foodDeleteButton}>
+                <Icon name="close" size={16} color="#EF4444" />
+              </TouchableOpacity>
             </View>
           ))
         )}
@@ -140,6 +184,9 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
           <Text style={styles.mealTotalTextSmall}>F: {Number(item.total_fat).toFixed(0)}g</Text>
         </View>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Add food to meal"
+          accessibilityHint="Opens food search"
           style={styles.mealAddButton}
           onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}
         >
@@ -153,11 +200,11 @@ export default function NutritionScreen({ navigation }: NutritionScreenProps) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search foods" accessibilityHint="Opens food search" onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
           <Icon name="search" size={24} color="#2563EB" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nutrition</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add food" accessibilityHint="Opens food search to add a food item" onPress={() => navigation.navigate('More', { screen: 'FoodSearch' })}>
           <Icon name="add-circle" size={24} color="#2563EB" />
         </TouchableOpacity>
       </View>
@@ -454,6 +501,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#2563EB',
+  },
+  mealDeleteButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  foodDeleteButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   spacer: {
     height: 20,

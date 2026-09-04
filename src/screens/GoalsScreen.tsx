@@ -4,16 +4,14 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { goalRepo } from '../database/repositories';
 import { todayISO } from '../services';
 import type { Goal } from '../models';
-
-interface GoalsScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
+import { validateGoalValue, validateRequiredText } from '../utils/validation';
 
 interface GoalWithProgress extends Goal {
   progress: number;
 }
 
-export default function GoalsScreen({ navigation }: GoalsScreenProps) {
+export default function GoalsScreen({ navigation }: MoreScreenProps<'Goals'>) {
   const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({
@@ -35,6 +33,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
       setGoals(withProgress);
     } catch (e) {
       console.error('Failed to load goals:', e);
+      Alert.alert('Error', 'Failed to load goals.');
     }
   }, []);
 
@@ -45,10 +44,12 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
   }, [navigation, loadGoals]);
 
   const addGoal = async () => {
-    if (!newGoal.name.trim() || !newGoal.target_value) {
-      Alert.alert('Error', 'Please fill in the required fields');
-      return;
-    }
+    const nameError = validateRequiredText(newGoal.name, 'Goal name');
+    if (nameError) { Alert.alert('Invalid Input', nameError); return; }
+    const startError = validateGoalValue(newGoal.start_value, 'Start value');
+    if (startError) { Alert.alert('Invalid Input', startError); return; }
+    const targetError = validateGoalValue(newGoal.target_value, 'Target value');
+    if (targetError) { Alert.alert('Invalid Input', targetError); return; }
 
     try {
       await goalRepo.createGoal({
@@ -70,6 +71,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
       Alert.alert('Goal Created', 'Your goal has been created!');
     } catch (e) {
       console.error('Failed to create goal:', e);
+      Alert.alert('Error', 'Failed to create goal. Please try again.');
     }
   };
 
@@ -79,6 +81,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
       await loadGoals();
     } catch (e) {
       console.error('Failed to delete goal:', e);
+      Alert.alert('Error', 'Failed to delete goal.');
     }
   };
 
@@ -95,11 +98,11 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Goals</Text>
-        <TouchableOpacity onPress={() => setShowAddGoal(true)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add goal" accessibilityHint="Opens the create goal form" onPress={() => setShowAddGoal(true)}>
           <Icon name="add" size={24} color="#2563EB" />
         </TouchableOpacity>
       </View>
@@ -111,7 +114,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
           <Icon name="flag" size={48} color="#D1D5DB" />
           <Text style={styles.emptyTitle}>No Goals Yet</Text>
           <Text style={styles.emptySubtitle}>Set your first goal to start tracking</Text>
-          <TouchableOpacity style={styles.emptyButton} onPress={() => setShowAddGoal(true)}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Create goal" style={styles.emptyButton} onPress={() => setShowAddGoal(true)}>
             <Text style={styles.emptyButtonText}>Create Goal</Text>
           </TouchableOpacity>
         </View>
@@ -133,7 +136,12 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => deleteGoal(goal.id!)}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete goal" accessibilityHint="Deletes this goal permanently" onPress={() => {
+                  Alert.alert('Delete Goal', 'Are you sure you want to delete this goal?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => deleteGoal(goal.id!) },
+                  ]);
+                }}>
                   <Icon name="delete-outline" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
@@ -178,12 +186,13 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create Goal</Text>
-              <TouchableOpacity onPress={() => setShowAddGoal(false)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close form" onPress={() => setShowAddGoal(false)}>
                 <Icon name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
             <TextInput
+              accessibilityLabel="Goal name"
               style={styles.input}
               placeholder="Goal Name (e.g., Lose 20 kg)"
               value={newGoal.name}
@@ -210,6 +219,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Starting Value</Text>
                 <TextInput
+                  accessibilityLabel="Starting value"
                   style={styles.input}
                   placeholder="0"
                   keyboardType="decimal-pad"
@@ -220,6 +230,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Target Value</Text>
                 <TextInput
+                  accessibilityLabel="Target value"
                   style={styles.input}
                   placeholder="0"
                   keyboardType="decimal-pad"
@@ -229,7 +240,7 @@ export default function GoalsScreen({ navigation }: GoalsScreenProps) {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.createButton} onPress={addGoal}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Create goal" style={styles.createButton} onPress={addGoal}>
               <Text style={styles.createButtonText}>Create Goal</Text>
             </TouchableOpacity>
           </View>

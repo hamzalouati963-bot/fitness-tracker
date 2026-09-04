@@ -3,12 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { CalculatorService } from '../services';
 import { settingsRepo } from '../database/repositories';
+import type { MoreScreenProps } from '../navigation/types';
 
-interface CalculatorsScreenProps {
-  navigation: any;
-}
-
-export default function CalculatorsScreen({ navigation }: CalculatorsScreenProps) {
+export default function CalculatorsScreen({ navigation }: MoreScreenProps<'Calculators'>) {
   const calculatorService = new CalculatorService();
 
   const [bmiInputs, setBmiInputs] = useState({ weight: '', height: '' });

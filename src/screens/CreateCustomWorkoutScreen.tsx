@@ -4,11 +4,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { customWorkoutRepo, userProfileRepo, workoutRepo } from '../database/repositories';
 import { exercises as exercisesData, todayISO, timeNow } from '../services';
 import type { CustomWorkoutExercise, UserProfile, UserGoal, FitnessLevel } from '../models';
-
-interface CreateCustomWorkoutScreenProps {
-  navigation: any;
-  route: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
+import { consumePendingExercise } from '../utils/sharedState';
 
 interface ExerciseDraft {
   tempId: string;
@@ -22,7 +19,7 @@ interface ExerciseDraft {
   notes: string;
 }
 
-export default function CreateCustomWorkoutScreen({ navigation, route }: CreateCustomWorkoutScreenProps) {
+export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScreenProps<'CreateCustomWorkout'>) {
   const workoutId = route.params?.workoutId as number | undefined;
   const isEditing = !!workoutId;
 
@@ -50,6 +47,27 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
     }
   }, [workoutId]);
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      const exercise = consumePendingExercise();
+      if (exercise) {
+        setEditingExercise({
+          tempId: Date.now().toString(),
+          exercise_id: exercise.id,
+          exercise_name: exercise.name,
+          order_index: exercises.length,
+          sets: 3,
+          reps: 10,
+          weight_kg: 0,
+          rest_seconds: exercise.default_rest_seconds || 90,
+          notes: '',
+        });
+        setShowExerciseEditor(true);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, exercises.length]);
+
   const loadWorkout = async () => {
     if (!workoutId) return;
     const workout = await customWorkoutRepo.getById(workoutId);
@@ -74,22 +92,7 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: CreateC
 
 
   const handleAddExercise = () => {
-    navigation.navigate('ExercisePicker', {
-      onSelect: (exercise: any) => {
-        setEditingExercise({
-          tempId: Date.now().toString(),
-          exercise_id: exercise.id,
-          exercise_name: exercise.name,
-          order_index: exercises.length,
-          sets: 3,
-          reps: 10,
-          weight_kg: 0,
-          rest_seconds: exercise.default_rest_seconds || 90,
-          notes: '',
-        });
-        setShowExerciseEditor(true);
-      },
-    });
+    navigation.navigate('ExercisePicker');
   };
 
   const handleConfirmExercise = () => {

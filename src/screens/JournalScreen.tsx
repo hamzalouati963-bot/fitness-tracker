@@ -3,12 +3,9 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { dailyLogRepo } from '../database/repositories';
 import { todayLocal } from '../utils/dates';
+import type { MoreScreenProps } from '../navigation/types';
 
-interface JournalScreenProps {
-  navigation: any;
-}
-
-export default function JournalScreen({ navigation }: JournalScreenProps) {
+export default function JournalScreen({ navigation }: MoreScreenProps<'Journal'>) {
   const today = todayLocal();
 
   const [weight, setWeight] = useState('');

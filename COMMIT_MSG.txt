@@ -1,11 +1,13 @@
-Phase 5-12: Singleton repos, dead code cleanup, error/empty states
+Phase 1-8: Navigation types, CRUD, validation, a11y, error handling, consistency, performance
 
-- Singleton repository instances (eliminates 51 per-render allocations)
-- Remove dead code: RepositoryContext, theme.ts, app_config.json, FoodEntry, NutritionService, unused constants (~240 lines removed)
-- Fix calculateWorkoutCalories formula (was double-dividing by 60)
-- Add getStartOfWeekLocal/getEndOfWeekLocal (Monday start) for week consistency
-- Fix DashboardScreen/WeeklyReviewScreen week calculations to use new utils
-- Fix dual profile system: SettingsRepository now bridges to user_profile table
-- Add loading/error/empty states to DashboardScreen, ProfileScreen, ProgressScreen
-- All 20 screens updated to use singleton repository instances
+- Navigation type safety: TabParamList, MoreStackParamList, typed screen props for all 21 screens
+- Replaced unsafe callback-via-params (ExercisePicker) with shared state pattern
+- CRUD gaps filled: measurement delete, goal delete confirmation, meal item delete, hydration delete confirmation, workout session delete
+- Reusable validation utilities (age, height, weight, calories, reps, sets, water)
+- Input validation on MeasurementsScreen, GoalsScreen, HydrationScreen, ProfileScreen, WorkoutScreen
+- Accessibility labels/roles/hints on 6 key screens (Dashboard, Workout, Nutrition, Hydration, Goals, Measurements)
+- Error handling: Alert feedback on all operation failures across 5 critical screens
+- Data consistency: Dashboard focus listener, WeeklyReview UTC date fix, dead query removal, workout days count fix
+- Performance: Parallelized 7 sequential DB calls in ProgressScreen
+- Removed .expo/ from git tracking, fixed .gitignore
 - TypeScript clean, Expo export succeeds

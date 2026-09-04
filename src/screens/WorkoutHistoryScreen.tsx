@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { workoutRepo } from '../database/repositories';
 import type { WorkoutSession } from '../models';
-
-interface WorkoutHistoryScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
 
 interface SessionSummary {
   id: number;
@@ -25,7 +22,7 @@ const formatDate = (date: string) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScreenProps) {
+export default function WorkoutHistoryScreen({ navigation }: MoreScreenProps<'WorkoutHistory'>) {
   const [history, setHistory] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +34,7 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
       setHistory(summaries);
     } catch (e) {
       console.error('Failed to load history:', e);
+      Alert.alert('Error', 'Failed to load workout history.');
     } finally {
       setLoading(false);
     }
@@ -48,6 +46,29 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
     return unsubscribe;
   }, [navigation, loadHistory]);
 
+  const handleDelete = (item: SessionSummary) => {
+    Alert.alert(
+      'Delete Workout',
+      'Are you sure you want to delete this workout session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await workoutRepo.deleteSession(item.id);
+              loadHistory();
+            } catch (e) {
+              console.error('Failed to delete workout:', e);
+              Alert.alert('Error', 'Failed to delete workout.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderItem = ({ item }: { item: SessionSummary }) => (
     <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Workout', { sessionId: item.id })}>
       <View style={styles.cardHeader}>
@@ -55,9 +76,14 @@ export default function WorkoutHistoryScreen({ navigation }: WorkoutHistoryScree
           <Text style={styles.dateText}>{formatDate(item.date)}</Text>
           <Text style={styles.workoutName}>{item.name}</Text>
         </View>
-        <View style={styles.durationBadge}>
-          <Icon name="schedule" size={14} color="#6B7280" />
-          <Text style={styles.durationText}>{item.duration != null && item.duration > 0 ? formatDuration(item.duration) : '—'}</Text>
+        <View style={styles.cardHeaderRight}>
+          <View style={styles.durationBadge}>
+            <Icon name="schedule" size={14} color="#6B7280" />
+            <Text style={styles.durationText}>{item.duration != null && item.duration > 0 ? formatDuration(item.duration) : '—'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => handleDelete(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name="delete-outline" size={20} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -171,6 +197,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   durationBadge: {
     flexDirection: 'row',

@@ -547,7 +547,7 @@ export class DailyLogRepository {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     const result = await db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) as count FROM daily_logs WHERE workout_completed = 1 AND date >= ?',
+      "SELECT COUNT(DISTINCT date) as count FROM workout_sessions WHERE end_time IS NOT NULL AND date >= ?",
       [formatDateLocal(startDate)]
     );
     return result?.count ?? 0;

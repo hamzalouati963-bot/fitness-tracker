@@ -3,10 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { userProfileRepo } from '../database/repositories';
 import type { UserProfile, UserGoal, FitnessLevel, Equipment } from '../models';
-
-interface ProfileScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
 
 const GOALS: { value: UserGoal; label: string }[] = [
   { value: 'lose_weight', label: 'Lose Weight' },
@@ -34,7 +31,7 @@ const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
 
 const DURATIONS = [15, 30, 45, 60, 90, 120];
 
-export default function ProfileScreen({ navigation }: ProfileScreenProps) {
+export default function ProfileScreen({ navigation }: MoreScreenProps<'Profile'>) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -81,6 +78,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const handleSave = async () => {
     if (!firstName.trim()) {
       Alert.alert('Required', 'First name is required.');
+      return;
+    }
+    if (age && (isNaN(Number(age)) || Number(age) < 10 || Number(age) > 120)) {
+      Alert.alert('Invalid Age', 'Age must be between 10 and 120.');
+      return;
+    }
+    if (height && (isNaN(Number(height)) || Number(height) < 50 || Number(height) > 300)) {
+      Alert.alert('Invalid Height', 'Height must be between 50 and 300 cm.');
+      return;
+    }
+    if (weight && (isNaN(Number(weight)) || Number(weight) < 20 || Number(weight) > 500)) {
+      Alert.alert('Invalid Weight', 'Weight must be between 20 and 500 kg.');
       return;
     }
     if (!profile?.id) return;

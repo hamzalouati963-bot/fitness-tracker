@@ -3,12 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { workoutRepo, nutritionRepo, measurementRepo, dailyLogRepo } from '../database/repositories';
 import { ProgressService, dateDaysAgo } from '../services';
+import type { TabScreenProps } from '../navigation/types';
 
-interface ProgressScreenProps {
-  navigation: any;
-}
-
-export default function ProgressScreen({ navigation }: ProgressScreenProps) {
+export default function ProgressScreen({ navigation }: TabScreenProps<'Progress'>) {
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [weightData, setWeightData] = useState<{ date: string; weight: number }[]>([]);
@@ -45,8 +42,10 @@ export default function ProgressScreen({ navigation }: ProgressScreenProps) {
       setAvgCalories(Math.round(avgCal));
 
       let p = 0, c = 0, f = 0, count = 0;
-      for (let i = 0; i < 7; i++) {
-        const totals = await nutritionRepo.getDailyNutrition(dateDaysAgo(i));
+      const dailyNutrition = await Promise.all(
+        Array.from({ length: 7 }, (_, i) => nutritionRepo.getDailyNutrition(dateDaysAgo(i)))
+      );
+      for (const totals of dailyNutrition) {
         if (totals.calories > 0) {
           p += totals.protein;
           c += totals.carbs;

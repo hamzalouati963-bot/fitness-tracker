@@ -4,10 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { nutritionRepo, dailyLogRepo } from '../database/repositories';
 import { foods, todayISO, type Food } from '../services';
 import type { MealType } from '../models';
-
-interface FoodSearchScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
 
 const MEAL_TYPES: { id: MealType; label: string; icon: string }[] = [
   { id: 'breakfast', label: 'Breakfast', icon: '🌅' },
@@ -16,7 +13,7 @@ const MEAL_TYPES: { id: MealType; label: string; icon: string }[] = [
   { id: 'snack', label: 'Snack', icon: '🍿' },
 ];
 
-export default function FoodSearchScreen({ navigation }: FoodSearchScreenProps) {
+export default function FoodSearchScreen({ navigation }: MoreScreenProps<'FoodSearch'>) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Food[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<MealType>('snack');

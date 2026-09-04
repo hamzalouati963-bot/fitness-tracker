@@ -4,10 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { customWorkoutRepo, workoutRepo } from '../database/repositories';
 import { exercises as exercisesData, todayISO, timeNow } from '../services';
 import type { CustomWorkout } from '../models';
-
-interface CustomWorkoutsScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
 
 interface WorkoutSummary {
   workout: CustomWorkout;
@@ -15,7 +12,7 @@ interface WorkoutSummary {
   totalSets: number;
 }
 
-export default function CustomWorkoutsScreen({ navigation }: CustomWorkoutsScreenProps) {
+export default function CustomWorkoutsScreen({ navigation }: MoreScreenProps<'CustomWorkouts'>) {
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [loading, setLoading] = useState(true);
 

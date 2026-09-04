@@ -5,10 +5,7 @@ import { workoutRepo, nutritionRepo, hydrationRepo, goalRepo, measurementRepo, s
 import { RecommendationService } from '../services';
 import { todayLocal, formatDateLocal, getStartOfWeekLocal, getEndOfWeekLocal } from '../utils/dates';
 import type { UserProfile, UserGoal } from '../models';
-
-interface DashboardScreenProps {
-  navigation: any;
-}
+import type { TabScreenProps } from '../navigation/types';
 
 const GOAL_LABELS: Record<UserGoal, string> = {
   lose_weight: 'Lose Weight',
@@ -19,7 +16,7 @@ const GOAL_LABELS: Record<UserGoal, string> = {
   improve_endurance: 'Improve Endurance',
 };
 
-export default function DashboardScreen({ navigation }: DashboardScreenProps) {
+export default function DashboardScreen({ navigation }: TabScreenProps<'Home'>) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [todaysWorkout, setTodaysWorkout] = useState<any>(null);
   const [goalProgress, setGoalProgress] = useState<number | null>(null);
@@ -90,8 +87,11 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
   }, []);
 
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadDashboardData();
+    });
+    return unsubscribe;
+  }, [navigation, loadDashboardData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -113,7 +113,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <Text style={{ color: '#991B1B', fontWeight: '600', marginBottom: 8 }}>Something went wrong</Text>
           <Text style={{ color: '#B91C1C', marginBottom: 12 }}>{error}</Text>
-          <TouchableOpacity onPress={loadDashboardData} style={{ backgroundColor: '#2563EB', borderRadius: 8, paddingVertical: 10, alignItems: 'center' }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry" onPress={loadDashboardData} style={{ backgroundColor: '#2563EB', borderRadius: 8, paddingVertical: 10, alignItems: 'center' }}>
             <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -125,7 +125,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         <Text style={styles.greeting}>{getGreeting()}, {profile?.first_name || 'there'} 👋</Text>
         <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
         {profile && (
-          <TouchableOpacity style={styles.goalBadge} onPress={() => navigation.navigate('More', { screen: 'Profile' })}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to profile" accessibilityHint="Opens your profile settings" style={styles.goalBadge} onPress={() => navigation.navigate('More', { screen: 'Profile' })}>
             <Text style={styles.goalBadgeText}>🎯 {GOAL_LABELS[profile.goal]}</Text>
           </TouchableOpacity>
         )}
@@ -146,7 +146,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
               </View>
               <Icon name="play-arrow" size={24} color="#2563EB" />
             </View>
-            <TouchableOpacity style={styles.startButton}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue workout" style={styles.startButton}>
               <Text style={styles.startButtonText}>Continue Workout</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -163,7 +163,7 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
               <Icon name="add-circle" size={24} color="#2563EB" />
             </View>
             <Text style={styles.cardHint}>Create your workout to start training</Text>
-            <TouchableOpacity style={styles.startButton}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Create workout" style={styles.startButton}>
               <Text style={styles.startButtonText}>Create Workout</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -172,6 +172,9 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
 
       <View style={styles.metricsRow}>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Nutrition tracker"
+          accessibilityHint="Opens nutrition tracking"
           style={[styles.metricCard, { width: '48%' }]}
           onPress={() => navigation.navigate('Nutrition')}
         >
@@ -186,6 +189,9 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Hydration tracker"
+          accessibilityHint="Opens hydration tracking"
           style={[styles.metricCard, { width: '48%' }]}
           onPress={() => navigation.navigate('More', { screen: 'Hydration' })}
         >
@@ -204,6 +210,9 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         <Text style={styles.sectionTitle}>PROGRESS</Text>
 
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Goal progress"
+          accessibilityHint="Opens goals screen"
           style={styles.goalCard}
           onPress={() => navigation.navigate('More', { screen: 'Goals' })}
         >
@@ -219,6 +228,9 @@ export default function DashboardScreen({ navigation }: DashboardScreenProps) {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Current weight"
+          accessibilityHint="Opens measurements screen"
           style={styles.goalCard}
           onPress={() => navigation.navigate('More', { screen: 'Measurements' })}
         >

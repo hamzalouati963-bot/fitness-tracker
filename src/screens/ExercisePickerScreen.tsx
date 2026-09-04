@@ -4,11 +4,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { exercises, type Exercise } from '../services';
 import { userProfileRepo } from '../database/repositories';
 import type { UserProfile, Equipment } from '../models';
-
-interface ExercisePickerScreenProps {
-  navigation: any;
-  route: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
+import { setPendingExercise } from '../utils/sharedState';
 
 const EQUIPMENT_COMPATIBILITY: Record<Equipment, string[]> = {
   no_equipment: ['bodyweight'],
@@ -19,8 +16,7 @@ const EQUIPMENT_COMPATIBILITY: Record<Equipment, string[]> = {
   full_gym: ['barbell', 'dumbbells', 'machines', 'cable', 'bodyweight', 'resistance_bands', 'kettlebell'],
 };
 
-export default function ExercisePickerScreen({ navigation, route }: ExercisePickerScreenProps) {
-  const onSelect = route.params?.onSelect as ((exercise: Exercise) => void) | undefined;
+export default function ExercisePickerScreen({ navigation }: MoreScreenProps<'ExercisePicker'>) {
   const [query, setQuery] = useState('');
   const [userEquipment, setUserEquipment] = useState<Equipment>('full_gym');
 
@@ -54,10 +50,8 @@ export default function ExercisePickerScreen({ navigation, route }: ExercisePick
   });
 
   const handleSelect = (exercise: Exercise) => {
-    if (onSelect) {
-      onSelect(exercise);
-      navigation.goBack();
-    }
+    setPendingExercise(exercise);
+    navigation.goBack();
   };
 
   const getEquipmentLabel = (e: Equipment): string => {

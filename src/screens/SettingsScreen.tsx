@@ -5,10 +5,7 @@ import { settingsRepo } from '../database/repositories';
 import { clearAllData } from '../database';
 import { BackupService } from '../services';
 import type { FitnessGoal, ActivityLevel } from '../models';
-
-interface SettingsScreenProps {
-  navigation: any;
-}
+import type { MoreScreenProps } from '../navigation/types';
 
 type Theme = 'light' | 'dark' | 'system';
 type UnitSystem = 'metric' | 'imperial';
@@ -28,7 +25,7 @@ const fitnessGoals = [
   { id: 'endurance', label: 'Endurance' },
 ];
 
-export default function SettingsScreen({ navigation }: SettingsScreenProps) {
+export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings'>) {
   const [profile, setProfile] = useState<{
     name: string;
     age: string;

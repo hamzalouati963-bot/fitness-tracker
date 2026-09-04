@@ -3,12 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { workoutRepo, nutritionRepo, hydrationRepo, measurementRepo, settingsRepo, userProfileRepo } from '../database/repositories';
 import { formatDateLocal, getStartOfWeekLocal, getEndOfWeekLocal } from '../utils/dates';
+import type { MoreScreenProps } from '../navigation/types';
 
-interface WeeklyReviewScreenProps {
-  navigation: any;
-}
-
-export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenProps) {
+export default function WeeklyReviewScreen({ navigation }: MoreScreenProps<'WeeklyReview'>) {
   const [weekStart] = useState(() => getStartOfWeekLocal());
   const [weekEnd] = useState(() => getEndOfWeekLocal());
 
@@ -29,10 +26,8 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
         setPlannedDays(userProfile.training_days);
       }
 
-      const [sessions, logCount, hydrationCount, target] = await Promise.all([
+      const [sessions, target] = await Promise.all([
         workoutRepo.getSessionsByDateRange(weekStart, weekEnd),
-        nutritionRepo.getNutritionLogCount(30),
-        hydrationRepo.getTodaysHydration(weekStart),
         settingsRepo.getNutritionTargets(),
       ]);
 
@@ -109,8 +104,8 @@ export default function WeeklyReviewScreen({ navigation }: WeeklyReviewScreenPro
       <View style={styles.periodCard}>
         <Text style={styles.periodTitle}>WEEKLY REVIEW</Text>
         <Text style={styles.periodDate}>
-          {new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — 
-          {new Date(weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          {new Date(weekStart + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — 
+          {new Date(weekEnd + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
         </Text>
       </View>
 
