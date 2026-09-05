@@ -214,6 +214,13 @@ async function runMigrations() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS app_security (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin_salt TEXT,
+      pin_hash TEXT,
+      pin_length INTEGER,
+      pin_set_at TEXT
+    )`,
   ];
 
   await database.withTransactionAsync(async () => {
@@ -221,6 +228,18 @@ async function runMigrations() {
       await database.runAsync(sql, []);
     }
   });
+
+  // Migration additive : colonne is_premium sur app_settings (installs existantes)
+  const settingsCols = await database.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(app_settings)',
+    []
+  );
+  if (!settingsCols.some(c => c.name === 'is_premium')) {
+    await database.runAsync(
+      'ALTER TABLE app_settings ADD COLUMN is_premium INTEGER DEFAULT 0',
+      []
+    );
+  }
 
   const settingsCount = await database.getFirstAsync<{ id: number }>(
     'SELECT id FROM app_settings LIMIT 1',
@@ -283,6 +302,7 @@ export async function clearAllData(): Promise<void> {
     await database.runAsync('DELETE FROM hydration_entries', []);
     await database.runAsync('DELETE FROM custom_foods', []);
     await database.runAsync('DELETE FROM user_profile', []);
+    await database.runAsync('DELETE FROM app_security', []);
     // app_settings : re-seed des valeurs par defaut
     await database.runAsync('DELETE FROM app_settings', []);
     await database.runAsync(

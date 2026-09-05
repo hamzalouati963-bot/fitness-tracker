@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share, Modal, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { settingsRepo } from '../database/repositories';
+import { settingsRepo, securityRepo } from '../database/repositories';
 import { clearAllData } from '../database';
 import { BackupService } from '../services';
 import { DEFAULT_CALORIE_GOAL, DEFAULT_PROTEIN_GOAL_G, DEFAULT_CARBS_GOAL_G, DEFAULT_FAT_GOAL_G, DEFAULT_HYDRATION_LITERS } from '../constants';
+import { hashPin, generateSalt, isValidPin } from '../utils/crypto';
+import { usePremium } from '../hooks/usePremium';
 import type { FitnessGoal, ActivityLevel } from '../models';
 import type { MoreScreenProps } from '../navigation/types';
 
@@ -27,6 +29,8 @@ const fitnessGoals = [
 ];
 
 export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings'>) {
+  const { isPremium, isLoading: premiumLoading, refresh: refreshPremium } = usePremium();
+  const [hasPin, setHasPin] = useState(false);
   const [profile, setProfile] = useState<{
     name: string;
     age: string;
@@ -73,6 +77,20 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+
+  const loadSecurity = useCallback(async () => {
+    try {
+      const sec = await securityRepo.getSecurity();
+      setHasPin(!!sec);
+    } catch (e) {
+      console.error('Failed to load security:', e);
+    }
+  }, []);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -123,7 +141,76 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    loadSecurity();
+  }, [loadSettings, loadSecurity]);
+
+  const openPinModal = () => {
+    setCurrentPinInput('');
+    setNewPinInput('');
+    setConfirmPinInput('');
+    setPinModalVisible(true);
+  };
+
+  const savePin = async () => {
+    const wantsPin = newPinInput.length > 0 || confirmPinInput.length > 0;
+    if (!wantsPin) {
+      Alert.alert('PIN', 'Enter a new PIN or use Remove PIN.');
+      return;
+    }
+    if (!isValidPin(newPinInput)) {
+      Alert.alert('Invalid PIN', 'Your PIN must be 4 to 6 digits.');
+      return;
+    }
+    if (newPinInput !== confirmPinInput) {
+      Alert.alert('PIN Mismatch', 'The two PINs do not match.');
+      return;
+    }
+    setPinSaving(true);
+    try {
+      if (hasPin) {
+        // Verifier le PIN actuel avant de le remplacer
+        const sec = await securityRepo.getSecurity();
+        if (!sec || hashPin(currentPinInput, sec.pin_salt!) !== sec.pin_hash) {
+          Alert.alert('Wrong PIN', 'Your current PIN is incorrect.');
+          return;
+        }
+      }
+      const salt = generateSalt();
+      await securityRepo.setPin(hashPin(newPinInput, salt), salt, newPinInput.length);
+      setHasPin(true);
+      setPinModalVisible(false);
+      Alert.alert('Saved', hasPin ? 'Your PIN has been changed.' : 'App lock enabled.');
+    } catch (e) {
+      console.error('Failed to save PIN:', e);
+      Alert.alert('Error', 'Failed to save PIN. Please try again.');
+    } finally {
+      setPinSaving(false);
+    }
+  };
+
+  const removePin = () => {
+    Alert.alert(
+      'Remove PIN',
+      'The app will no longer be locked. Your PIN will be deleted from this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await securityRepo.clearPin();
+              setHasPin(false);
+              Alert.alert('Done', 'App lock disabled.');
+            } catch (e) {
+              console.error('Failed to remove PIN:', e);
+              Alert.alert('Error', 'Failed to remove PIN. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const saveProfile = async () => {
     try {
@@ -283,6 +370,25 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 24 }} />
+      </View>
+
+      {/* Premium */}
+      <View style={styles.section}>
+        <View style={styles.card}>
+          <View style={styles.premiumRow}>
+            <Icon name="workspace-premium" size={30} color="#D97706" />
+            <View style={styles.premiumInfo}>
+              <Text style={styles.premiumTitle}>Fitness Premium</Text>
+              <Text style={styles.premiumSubtitle}>
+                {premiumLoading
+                  ? 'Loading...'
+                  : isPremium
+                    ? 'Premium active — thank you for your support!'
+                    : 'Free plan. All your data stays on this device.'}
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* Profile Section */}
@@ -502,7 +608,7 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
                 <TouchableOpacity
                   key={theme}
                   style={[styles.themeButton, appearance.theme === theme && styles.themeActive]}
-                  onPress={() => setAppearance({ ...appearance, theme: theme as any })}
+                  onPress={() => setAppearance({ ...appearance, theme: theme as Theme })}
                 >
                   <Text style={[styles.themeText, appearance.theme === theme && styles.themeTextActive]}>
                     {theme.charAt(0).toUpperCase() + theme.slice(1)}
@@ -535,6 +641,34 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
           <TouchableOpacity style={styles.saveChip} onPress={saveAppearance}>
             <Text style={styles.saveChipText}>Save Settings</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Security */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Icon name="lock" size={20} color="#2563EB" />
+          <Text style={styles.sectionTitle}>SECURITY</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>App Lock (PIN)</Text>
+            <Text style={styles.securityStatus}>
+              {hasPin
+                ? 'Enabled — the app asks for your PIN on startup.'
+                : 'Disabled — protect your data with a 4-6 digit PIN.'}
+            </Text>
+            <View style={styles.securityButtons}>
+              <TouchableOpacity style={styles.saveChip} onPress={openPinModal}>
+                <Text style={styles.saveChipText}>{hasPin ? 'Change PIN' : 'Set PIN'}</Text>
+              </TouchableOpacity>
+              {hasPin && (
+                <TouchableOpacity style={styles.saveChip} onPress={removePin}>
+                  <Text style={styles.saveChipText}>Remove PIN</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </View>
       </View>
 
@@ -620,6 +754,66 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
         </View>
       </Modal>
 
+      {/* PIN Modal */}
+      <Modal
+        visible={pinModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setPinModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setPinModalVisible(false)}>
+              <Icon name="close" size={24} color="#1F2937" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{hasPin ? 'Change PIN' : 'Set PIN'}</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <Text style={styles.modalHint}>
+            The PIN locks the app on this device only. It is never stored in plain text.
+          </Text>
+          {hasPin && (
+            <TextInput
+              style={styles.pinInput}
+              value={currentPinInput}
+              onChangeText={(t) => setCurrentPinInput(t.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Current PIN"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="numeric"
+              secureTextEntry
+              maxLength={6}
+            />
+          )}
+          <TextInput
+            style={styles.pinInput}
+            value={newPinInput}
+            onChangeText={(t) => setNewPinInput(t.replace(/\D/g, '').slice(0, 6))}
+            placeholder="New PIN (4-6 digits)"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            secureTextEntry
+            maxLength={6}
+          />
+          <TextInput
+            style={styles.pinInput}
+            value={confirmPinInput}
+            onChangeText={(t) => setConfirmPinInput(t.replace(/\D/g, '').slice(0, 6))}
+            placeholder="Confirm new PIN"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            secureTextEntry
+            maxLength={6}
+          />
+          <TouchableOpacity
+            style={[styles.modalImportButton, pinSaving && { opacity: 0.6 }]}
+            onPress={savePin}
+            disabled={pinSaving}
+          >
+            <Text style={styles.modalImportText}>{pinSaving ? 'Saving...' : 'Save PIN'}</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       <View style={styles.spacer} />
     </ScrollView>
   );
@@ -628,6 +822,13 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   centered: { justifyContent: 'center', alignItems: 'center' },
+  premiumRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  premiumInfo: { flex: 1 },
+  premiumTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  premiumSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  securityStatus: { fontSize: 13, color: '#374151', marginBottom: 12 },
+  securityButtons: { flexDirection: 'row', gap: 12 },
+  pinInput: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, fontSize: 18, color: '#1F2937', marginBottom: 12, letterSpacing: 8, textAlign: 'center' },
   modalContainer: { flex: 1, backgroundColor: '#F9FAFB', padding: 16 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, marginBottom: 8 },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937' },

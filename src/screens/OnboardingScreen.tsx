@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { userProfileRepo } from '../database/repositories';
+import { userProfileRepo, securityRepo } from '../database/repositories';
+import { hashPin, generateSalt, isValidPin } from '../utils/crypto';
 import type { UserGoal, FitnessLevel, Equipment } from '../models';
 
 interface OnboardingScreenProps {
@@ -47,6 +48,8 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
   const [trainingDays, setTrainingDays] = useState(3);
   const [sessionDuration, setSessionDuration] = useState(45);
   const [equipment, setEquipment] = useState<Equipment>('no_equipment');
+  const [pin, setPin] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
 
   const validateStep = (): boolean => {
     switch (step) {
@@ -80,6 +83,19 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
           return false;
         }
         return true;
+      case 5: {
+        const wantsPin = pin.length > 0 || pinConfirm.length > 0;
+        if (!wantsPin) return true; // PIN optionnel
+        if (!isValidPin(pin)) {
+          Alert.alert('Invalid PIN', 'Your PIN must be 4 to 6 digits.');
+          return false;
+        }
+        if (pin !== pinConfirm) {
+          Alert.alert('PIN Mismatch', 'The two PINs do not match.');
+          return false;
+        }
+        return true;
+      }
       default:
         return true;
     }
@@ -123,6 +139,13 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
         session_duration: sessionDuration,
         equipment,
       });
+
+      // Compte local : PIN optionnel (jamais stocke en clair, 100% sur l'appareil)
+      if (isValidPin(pin)) {
+        const salt = generateSalt();
+        await securityRepo.setPin(hashPin(pin, salt), salt, pin.length);
+      }
+
       onDone();
     } catch (e) {
       console.error('Failed to create profile:', e);
@@ -132,7 +155,7 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
 
   const renderProgressBar = () => (
     <View style={styles.progressContainer}>
-      {[0, 1, 2, 3, 4].map((i) => (
+      {[0, 1, 2, 3, 4, 5].map((i) => (
         <View key={i} style={[styles.progressDot, step >= i && styles.progressDotActive]} />
       ))}
     </View>
@@ -313,6 +336,58 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        <View style={styles.navRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
+            <Icon name="arrow-back" size={20} color="#6B7280" />
+            <Text style={styles.backBtnText}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleNext}>
+            <Text style={styles.primaryBtnText}>Next</Text>
+            <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.spacer} />
+      </ScrollView>
+    );
+  }
+
+  if (step === 5) {
+    return (
+      <ScrollView style={styles.container}>
+        {renderProgressBar()}
+        <Text style={styles.stepTitle}>Secure Your App 🔒</Text>
+        <Text style={styles.stepSubtitle}>
+          Optional: choose a PIN to lock the app. It stays on this device only.
+        </Text>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>PIN (4-6 digits)</Text>
+          <TextInput
+            style={styles.input}
+            value={pin}
+            onChangeText={(t) => setPin(t.replace(/\D/g, '').slice(0, 6))}
+            placeholder="e.g. 1234"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            secureTextEntry
+            maxLength={6}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Confirm PIN</Text>
+          <TextInput
+            style={styles.input}
+            value={pinConfirm}
+            onChangeText={(t) => setPinConfirm(t.replace(/\D/g, '').slice(0, 6))}
+            placeholder="Repeat your PIN"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            secureTextEntry
+            maxLength={6}
+          />
         </View>
 
         <View style={styles.navRow}>

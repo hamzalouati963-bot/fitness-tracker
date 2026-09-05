@@ -11,14 +11,17 @@ import NutritionScreen from './screens/NutritionScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import MoreStack from './MoreStack';
 import OnboardingScreen from './screens/OnboardingScreen';
+import LockScreen from './screens/LockScreen';
 import { getDatabase } from './database';
-import { userProfileRepo } from './database/repositories';
+import { userProfileRepo, securityRepo, type SecurityInfo } from './database/repositories';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [security, setSecurity] = useState<SecurityInfo | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +29,9 @@ export default function App() {
       try {
         await getDatabase();
         const profile = await userProfileRepo.get();
+        const sec = await securityRepo.getSecurity();
         setHasProfile(!!profile);
+        setSecurity(sec);
         setReady(true);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -39,6 +44,7 @@ export default function App() {
 
   const handleOnboardingDone = useCallback(() => {
     setHasProfile(true);
+    // Le PIN eventuel cree pendant l'onboarding ne verrouille pas la session en cours
   }, []);
 
   if (error) {
@@ -62,6 +68,17 @@ export default function App() {
 
   if (hasProfile === false) {
     return <OnboardingScreen onDone={handleOnboardingDone} />;
+  }
+
+  if (security && !unlocked) {
+    return (
+      <LockScreen
+        pinHash={security.pin_hash!}
+        pinSalt={security.pin_salt!}
+        pinLength={security.pin_length}
+        onUnlock={() => setUnlocked(true)}
+      />
+    );
   }
 
   return (

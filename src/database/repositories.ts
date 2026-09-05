@@ -1058,6 +1058,60 @@ function now(): string {
   return new Date().toISOString();
 }
 
+export interface SecurityInfo {
+  pin_salt: string | null;
+  pin_hash: string | null;
+  pin_length: number | null;
+}
+
+/**
+ * Securite locale : PIN de verrouillage (jamais en clair : salt + hash)
+ * et flag premium. Tout reste dans la base locale, offline.
+ */
+export class SecurityRepository {
+  async getSecurity(): Promise<SecurityInfo | null> {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<Record<string, unknown>>(
+      'SELECT pin_salt, pin_hash, pin_length FROM app_security ORDER BY id DESC LIMIT 1'
+    );
+    if (!row || !row.pin_hash || !row.pin_salt) return null;
+    return {
+      pin_salt: row.pin_salt as string,
+      pin_hash: row.pin_hash as string,
+      pin_length: (row.pin_length as number) || null,
+    };
+  }
+
+  async setPin(pinHash: string, pinSalt: string, pinLength: number): Promise<void> {
+    const db = await getDatabase();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM app_security', []);
+      await db.runAsync(
+        'INSERT INTO app_security (pin_salt, pin_hash, pin_length, pin_set_at) VALUES (?, ?, ?, ?)',
+        [pinSalt, pinHash, pinLength, now()]
+      );
+    });
+  }
+
+  async clearPin(): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('DELETE FROM app_security', []);
+  }
+
+  async isPremium(): Promise<boolean> {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<{ is_premium: number }>(
+      'SELECT is_premium FROM app_settings LIMIT 1'
+    );
+    return !!row && row.is_premium === 1;
+  }
+
+  async setPremium(value: boolean): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('UPDATE app_settings SET is_premium = ?', [value ? 1 : 0]);
+  }
+}
+
 // Singleton instances — screens import these instead of `new XxxRepository()`
 export const workoutRepo = new WorkoutRepository();
 export const nutritionRepo = new NutritionRepository();
@@ -1067,4 +1121,5 @@ export const dailyLogRepo = new DailyLogRepository();
 export const hydrationRepo = new HydrationRepository();
 export const settingsRepo = new SettingsRepository();
 export const customWorkoutRepo = new CustomWorkoutRepository();
+export const securityRepo = new SecurityRepository();
 export const userProfileRepo = new UserProfileRepository();
