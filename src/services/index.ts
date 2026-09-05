@@ -19,7 +19,7 @@ import {
   userProfileRepo,
 } from '../database/repositories';
 import { getDatabase } from '../database';
-import { validateBackup } from '../utils/backup';
+import { validateBackup, isBackupSizeAllowed } from '../utils/backup';
 import type { Recommendation } from '../models';
 import exercisesData from '../data/exercises.json';
 import workoutProgramsData from '../data/workout_programs.json';
@@ -437,6 +437,9 @@ export class RecommendationService {
   }
 }
 
+/** Valeurs acceptees par SQLite lors de la reinsertion d'un backup. */
+type BackupCellValue = string | number | null;
+
 export class BackupService {
   /**
    * Export COMPLET (v2.0) : toutes les tables de donnees + profils + parametres.
@@ -492,6 +495,10 @@ export class BackupService {
    * v1.0 : restaure uniquement profil + objectifs nutritionnels (legacy).
    */
   async importData(jsonString: string): Promise<{ success: boolean; error?: string }> {
+    if (!isBackupSizeAllowed(jsonString)) {
+      return { success: false, error: 'Backup file too large (max 10 MB)' };
+    }
+
     let data: unknown;
     try {
       data = JSON.parse(jsonString);
@@ -521,7 +528,7 @@ export class BackupService {
        * Batch insert rows efficiently
        * Inserts in chunks to avoid SQLite parameter limits (~999 params)
        */
-      const insertRows = async (table: string, columns: string[], rows: any[][]) => {
+      const insertRows = async (table: string, columns: string[], rows: BackupCellValue[][]) => {
         if (rows.length === 0) return;
 
         const BATCH_SIZE = 100; // Insert 100 rows per batch
@@ -535,8 +542,9 @@ export class BackupService {
           await Promise.all(batch.map(row => db.runAsync(sql, row)));
         }
       };
-      const col = (row: any, key: string) => (row[key] === undefined ? null : row[key]);
-      const pick = (rows: any[], columns: string[]) =>
+      const col = (row: Record<string, unknown>, key: string): BackupCellValue =>
+        row[key] === undefined ? null : (row[key] as BackupCellValue);
+      const pick = (rows: Record<string, unknown>[], columns: string[]): BackupCellValue[][] =>
         rows.map(r => columns.map(c => col(r, c)));
 
       await db.withTransactionAsync(async () => {

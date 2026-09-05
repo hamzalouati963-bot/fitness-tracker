@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share, Modal, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { settingsRepo } from '../database/repositories';
 import { clearAllData } from '../database';
 import { BackupService } from '../services';
+import { DEFAULT_CALORIE_GOAL, DEFAULT_PROTEIN_GOAL_G, DEFAULT_CARBS_GOAL_G, DEFAULT_FAT_GOAL_G, DEFAULT_HYDRATION_LITERS } from '../constants';
 import type { FitnessGoal, ActivityLevel } from '../models';
 import type { MoreScreenProps } from '../navigation/types';
 
@@ -45,11 +46,11 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
   });
 
   const [nutrition, setNutrition] = useState({
-    calories: '2200',
-    protein: '150',
-    carbs: '250',
-    fat: '70',
-    hydration: '2.5',
+    calories: String(DEFAULT_CALORIE_GOAL),
+    protein: String(DEFAULT_PROTEIN_GOAL_G),
+    carbs: String(DEFAULT_CARBS_GOAL_G),
+    fat: String(DEFAULT_FAT_GOAL_G),
+    hydration: String(DEFAULT_HYDRATION_LITERS),
   });
 
   const [notifications, setNotifications] = useState({
@@ -71,8 +72,10 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadSettings = useCallback(async () => {
+    setLoading(true);
     try {
       const [prof, targets, notif, appearanceData] = await Promise.all([
         settingsRepo.getProfile(),
@@ -92,11 +95,11 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
       });
 
       setNutrition({
-        calories: String(targets.calories_kcal || 2200),
-        protein: String(targets.protein_g || 150),
-        carbs: String(targets.carbohydrates_g || 250),
-        fat: String(targets.fat_g || 70),
-        hydration: String(targets.hydration_liters || 2.5),
+        calories: String(targets.calories_kcal || DEFAULT_CALORIE_GOAL),
+        protein: String(targets.protein_g || DEFAULT_PROTEIN_GOAL_G),
+        carbs: String(targets.carbohydrates_g || DEFAULT_CARBS_GOAL_G),
+        fat: String(targets.fat_g || DEFAULT_FAT_GOAL_G),
+        hydration: String(targets.hydration_liters || DEFAULT_HYDRATION_LITERS),
       });
 
       setNotifications({
@@ -113,6 +116,8 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
       });
     } catch (e) {
       console.error('Failed to load settings:', e);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -140,11 +145,11 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
   const saveNutrition = async () => {
     try {
       await settingsRepo.updateNutritionTargets({
-        calories_kcal: parseInt(nutrition.calories) || 2200,
-        protein_g: parseInt(nutrition.protein) || 150,
-        carbohydrates_g: parseInt(nutrition.carbs) || 250,
-        fat_g: parseInt(nutrition.fat) || 70,
-        hydration_liters: parseFloat(nutrition.hydration) || 2.5,
+        calories_kcal: parseInt(nutrition.calories) || DEFAULT_CALORIE_GOAL,
+        protein_g: parseInt(nutrition.protein) || DEFAULT_PROTEIN_GOAL_G,
+        carbohydrates_g: parseInt(nutrition.carbs) || DEFAULT_CARBS_GOAL_G,
+        fat_g: parseInt(nutrition.fat) || DEFAULT_FAT_GOAL_G,
+        hydration_liters: parseFloat(nutrition.hydration) || DEFAULT_HYDRATION_LITERS,
       });
       Alert.alert('Saved', 'Nutrition targets saved');
     } catch (e) {
@@ -192,11 +197,7 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
     }
   };
 
-  const runImport = async () => {
-    if (!importText.trim()) {
-      Alert.alert('Import', 'Paste your backup JSON first.');
-      return;
-    }
+  const performImport = async () => {
     setImporting(true);
     try {
       const backupService = new BackupService();
@@ -215,6 +216,27 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
     } finally {
       setImporting(false);
     }
+  };
+
+  const runImport = () => {
+    if (!importText.trim()) {
+      Alert.alert('Import', 'Paste your backup JSON first.');
+      return;
+    }
+    Alert.alert(
+      'Restore Backup',
+      'This will REPLACE all your current data (workouts, meals, measurements, goals, journal) with the content of the backup.\n\nThis cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: () => {
+            void performImport();
+          },
+        },
+      ]
+    );
   };
 
   const importData = () => {
@@ -244,6 +266,14 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
       ]
     );
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} keyboardDismissMode="on-drag">
@@ -597,6 +627,7 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
+  centered: { justifyContent: 'center', alignItems: 'center' },
   modalContainer: { flex: 1, backgroundColor: '#F9FAFB', padding: 16 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, marginBottom: 8 },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#1F2937' },

@@ -28,9 +28,9 @@ export default function App() {
         const profile = await userProfileRepo.get();
         setHasProfile(!!profile);
         setReady(true);
-      } catch (e: any) {
-        const msg = e?.message || String(e);
-        const stack = e?.stack || '';
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const stack = e instanceof Error && e.stack ? e.stack : '';
         console.error('DB init failed', e);
         setError(`Database initialization failed\n\n${msg}\n\n${stack}`.slice(0, 1000));
       }

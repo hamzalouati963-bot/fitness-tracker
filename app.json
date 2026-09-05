@@ -31,6 +31,10 @@
           "backgroundColor": "#F9FAFB"
         }
       ]
-    ]
+    ],
+    "ios": {
+      "bundleIdentifier": "com.hamzalouati.fitnesstracker",
+      "buildNumber": "1"
+    }
   }
 }

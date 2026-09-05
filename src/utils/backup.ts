@@ -14,6 +14,13 @@ const REQUIRED_V2_TABLES = [
   'body_measurements', 'goals', 'daily_logs', 'hydration_entries',
 ] as const;
 
+/** Taille maximale acceptee pour le texte JSON d'un backup (10 Mo). */
+export const MAX_BACKUP_JSON_LENGTH = 10 * 1024 * 1024;
+
+export function isBackupSizeAllowed(json: string): boolean {
+  return typeof json === 'string' && json.length <= MAX_BACKUP_JSON_LENGTH;
+}
+
 export function validateBackup(json: unknown): BackupValidation {
   if (typeof json !== 'object' || json === null) {
     return { valid: false, version: null, error: 'Invalid file: not a JSON object' };
@@ -30,8 +37,12 @@ export function validateBackup(json: unknown): BackupValidation {
   }
   if (data.version === '2.0') {
     for (const table of REQUIRED_V2_TABLES) {
-      if (!Array.isArray(data[table])) {
+      const rows = data[table];
+      if (!Array.isArray(rows)) {
         return { valid: false, version: '2.0', error: `Invalid backup: missing table "${table}"` };
+      }
+      if (rows.some(row => typeof row !== 'object' || row === null)) {
+        return { valid: false, version: '2.0', error: `Invalid backup: malformed rows in "${table}"` };
       }
     }
     return { valid: true, version: '2.0' };
