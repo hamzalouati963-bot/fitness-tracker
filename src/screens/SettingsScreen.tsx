@@ -169,6 +169,10 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
     try {
       if (hasPin) {
         // Verifier le PIN actuel avant de le remplacer
+        if (!isValidPin(currentPinInput)) {
+          Alert.alert('Wrong PIN', 'Enter your current PIN (4-6 digits).');
+          return;
+        }
         const sec = await securityRepo.getSecurity();
         if (!sec || hashPin(currentPinInput, sec.pin_salt!) !== sec.pin_hash) {
           Alert.alert('Wrong PIN', 'Your current PIN is incorrect.');

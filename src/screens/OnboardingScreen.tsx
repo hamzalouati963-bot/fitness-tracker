@@ -141,9 +141,19 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
       });
 
       // Compte local : PIN optionnel (jamais stocke en clair, 100% sur l'appareil)
+      // Le profil est deja cree : en cas d'echec du PIN on continue quand meme,
+      // l'utilisateur pourra le (re)definir dans Settings -> Security.
       if (isValidPin(pin)) {
-        const salt = generateSalt();
-        await securityRepo.setPin(hashPin(pin, salt), salt, pin.length);
+        try {
+          const salt = generateSalt();
+          await securityRepo.setPin(hashPin(pin, salt), salt, pin.length);
+        } catch (pinError) {
+          console.error('Failed to save PIN during onboarding:', pinError);
+          Alert.alert(
+            'App lock not enabled',
+            'Your profile was created, but the PIN could not be saved. You can set it later in Settings > Security.'
+          );
+        }
       }
 
       onDone();
