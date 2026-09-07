@@ -215,9 +215,6 @@ async function runMigrations() {
     `CREATE INDEX IF NOT EXISTS idx_hydration_entries_date ON hydration_entries(date)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_foods_user ON custom_foods(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_foods_name ON custom_foods(name)`,
-    `CREATE INDEX IF NOT EXISTS idx_custom_workouts_user ON custom_workouts(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
     `CREATE TABLE IF NOT EXISTS custom_workouts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL DEFAULT 1,
@@ -240,6 +237,9 @@ async function runMigrations() {
       notes TEXT DEFAULT '',
       FOREIGN KEY (custom_workout_id) REFERENCES custom_workouts(id) ON DELETE CASCADE
     )`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_workouts_user ON custom_workouts(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
     `CREATE TABLE IF NOT EXISTS user_profile (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL DEFAULT 1,
