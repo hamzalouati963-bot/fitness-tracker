@@ -108,3 +108,29 @@ export function hashPin(pin: string, salt: string, iterations: number = PIN_ITER
   }
   return hash;
 }
+
+export function isValidPassword(password: string): boolean {
+  return typeof password === 'string' && password.length >= 6;
+}
+
+export function hashPassword(password: string, salt: string, iterations: number = PIN_ITERATIONS): string {
+  if (!isValidPassword(password)) throw new Error('Password must be at least 6 characters');
+  if (typeof salt !== 'string' || salt.length < 16) throw new Error('Invalid salt');
+  let hash = sha256(`fit-pass:${salt}:${password}`);
+  for (let i = 1; i < iterations; i++) {
+    hash = sha256(`fit-pass:${hash}:${salt}:${password}`);
+  }
+  return hash;
+}
+
+export function verifyPassword(password: string, salt: string, expectedHash: string): boolean {
+  try {
+    return hashPassword(password, salt) === expectedHash;
+  } catch {
+    return false;
+  }
+}
+
+export function isValidEmail(email: string): boolean {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
+}

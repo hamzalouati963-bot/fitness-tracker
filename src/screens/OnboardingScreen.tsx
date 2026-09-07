@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { userProfileRepo, securityRepo } from '../database/repositories';
 import { hashPin, generateSalt, isValidPin } from '../utils/crypto';
+import { sessionManager } from '../utils/session';
 import type { UserGoal, FitnessLevel, Equipment } from '../models';
 
 interface OnboardingScreenProps {
@@ -127,6 +128,7 @@ export default function OnboardingScreen({ onDone }: OnboardingScreenProps) {
 
     try {
       await userProfileRepo.create({
+        user_id: sessionManager.getCurrentUserId(),
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         age: age ? Number(age) : null,

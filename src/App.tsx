@@ -10,15 +10,21 @@ import WorkoutScreen from './screens/WorkoutScreen';
 import NutritionScreen from './screens/NutritionScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import MoreStack from './MoreStack';
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import LockScreen from './screens/LockScreen';
 import { getDatabase } from './database';
-import { userProfileRepo, securityRepo, type SecurityInfo } from './database/repositories';
+import { accountRepo, userProfileRepo, securityRepo, type SecurityInfo } from './database/repositories';
+import { sessionManager } from './utils/session';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
+type AuthView = 'login' | 'register';
+
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [authView, setAuthView] = useState<AuthView | null>(null);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [security, setSecurity] = useState<SecurityInfo | null>(null);
   const [unlocked, setUnlocked] = useState(false);
@@ -28,10 +34,32 @@ export default function App() {
     (async () => {
       try {
         await getDatabase();
+
+        // Try to restore session
+        const activeUserId = await sessionManager.restoreSession();
+
+        if (activeUserId) {
+          // Verify the user still exists
+          const account = await accountRepo.getAccountById(activeUserId);
+          if (account) {
+            // Check PIN
+            const sec = await securityRepo.getSecurity();
+            setSecurity(sec);
+            setAuthView(null);
+          } else {
+            // Account was deleted, clear session
+            await sessionManager.clearSession();
+            const accountCount = await accountRepo.getAccountCount();
+            setAuthView(accountCount > 0 ? 'login' : 'register');
+          }
+        } else {
+          // No active session
+          const accountCount = await accountRepo.getAccountCount();
+          setAuthView(accountCount > 0 ? 'login' : 'register');
+        }
+
         const profile = await userProfileRepo.get();
-        const sec = await securityRepo.getSecurity();
         setHasProfile(!!profile);
-        setSecurity(sec);
         setReady(true);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -42,16 +70,39 @@ export default function App() {
     })();
   }, []);
 
+  const handleAuthDone = useCallback(() => {
+    setAuthView(null);
+    // After login/register, session is set. Now check profile + PIN.
+    (async () => {
+      try {
+        const profile = await userProfileRepo.get();
+        setHasProfile(!!profile);
+        const sec = await securityRepo.getSecurity();
+        setSecurity(sec);
+      } catch (e) {
+        console.error('Post-auth refresh failed:', e);
+      }
+    })();
+  }, []);
+
   const handleOnboardingDone = useCallback(() => {
     setHasProfile(true);
-    // Le PIN eventuel cree pendant l'onboarding ne verrouille pas la session en cours
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await sessionManager.clearSession();
+    setSecurity(null);
+    setUnlocked(false);
+    setHasProfile(null);
+    const accountCount = await accountRepo.getAccountCount();
+    setAuthView(accountCount > 0 ? 'login' : 'register');
   }, []);
 
   if (error) {
     return (
       <ScrollView contentContainerStyle={styles.center}>
         <Icon name="error-outline" size={48} color="#EF4444" />
-        <Text style={styles.errorTitle}>Erreur de base de données</Text>
+        <Text style={styles.errorTitle}>Erreur de base de donnees</Text>
         <Text style={styles.errorText} selectable>{error}</Text>
       </ScrollView>
     );
@@ -66,10 +117,31 @@ export default function App() {
     );
   }
 
+  // Auth gate: login or register
+  if (authView === 'login') {
+    return (
+      <LoginScreen
+        onLogin={handleAuthDone}
+        onGoToRegister={() => setAuthView('register')}
+      />
+    );
+  }
+
+  if (authView === 'register') {
+    return (
+      <RegisterScreen
+        onRegister={handleAuthDone}
+        onGoToLogin={() => setAuthView('login')}
+      />
+    );
+  }
+
+  // Profile setup (onboarding)
   if (hasProfile === false) {
     return <OnboardingScreen onDone={handleOnboardingDone} />;
   }
 
+  // PIN lock
   if (security && !unlocked) {
     return (
       <LockScreen
@@ -81,6 +153,7 @@ export default function App() {
     );
   }
 
+  // Main app
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -122,7 +195,9 @@ export default function App() {
         <Tab.Screen name="Workout" component={WorkoutScreen} />
         <Tab.Screen name="Nutrition" component={NutritionScreen} />
         <Tab.Screen name="Progress" component={ProgressScreen} />
-        <Tab.Screen name="More" component={MoreStack} />
+        <Tab.Screen name="More">
+          {() => <MoreStack onLogout={handleLogout} />}
+        </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
   );

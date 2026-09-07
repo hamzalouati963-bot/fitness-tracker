@@ -16,8 +16,22 @@ async function runMigrations() {
   const database = db!;
 
   const statements = [
+    `CREATE TABLE IF NOT EXISTS user_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      password_salt TEXT NOT NULL,
+      display_name TEXT DEFAULT '',
+      created_at TEXT NOT NULL,
+      last_login_at TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS app_session (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      active_user_id INTEGER
+    )`,
     `CREATE TABLE IF NOT EXISTS workout_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       date TEXT NOT NULL,
       start_time TEXT NOT NULL,
       end_time TEXT,
@@ -26,7 +40,8 @@ async function runMigrations() {
       program_name TEXT,
       notes TEXT DEFAULT '',
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS workout_exercises (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,11 +66,13 @@ async function runMigrations() {
     )`,
     `CREATE TABLE IF NOT EXISTS meals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       date TEXT NOT NULL,
       meal_type TEXT NOT NULL,
       name TEXT NOT NULL,
       notes TEXT DEFAULT '',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS meal_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +90,7 @@ async function runMigrations() {
     )`,
     `CREATE TABLE IF NOT EXISTS body_measurements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       date TEXT NOT NULL,
       weight_kg REAL,
       waist_cm REAL,
@@ -87,10 +105,12 @@ async function runMigrations() {
       phase_angle REAL,
       source TEXT DEFAULT 'manual',
       notes TEXT DEFAULT '',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS goals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       goal_type TEXT NOT NULL,
       name TEXT NOT NULL,
       start_value REAL NOT NULL,
@@ -102,11 +122,13 @@ async function runMigrations() {
       is_active INTEGER DEFAULT 1,
       notes TEXT DEFAULT '',
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS daily_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL DEFAULT 1,
+      date TEXT NOT NULL,
       weight_kg REAL,
       water_liters REAL,
       sleep_hours REAL,
@@ -115,18 +137,23 @@ async function runMigrations() {
       nutrition_logged INTEGER DEFAULT 0,
       mood INTEGER,
       notes TEXT DEFAULT '',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE,
+      UNIQUE(user_id, date)
     )`,
     `CREATE TABLE IF NOT EXISTS hydration_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       date TEXT NOT NULL,
       time TEXT NOT NULL,
       amount_liters REAL NOT NULL,
       source TEXT DEFAULT 'manual',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS custom_foods (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       name TEXT NOT NULL,
       serving_size REAL NOT NULL,
       unit TEXT NOT NULL,
@@ -134,18 +161,12 @@ async function runMigrations() {
       protein_g REAL NOT NULL,
       carbs_g REAL NOT NULL,
       fat_g REAL NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS app_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      profile_name TEXT,
-      profile_age INTEGER,
-      profile_sex TEXT DEFAULT 'male',
-      profile_height_cm REAL DEFAULT 182,
-      profile_current_weight_kg REAL DEFAULT 116.2,
-      profile_activity_level TEXT DEFAULT 'sedentary',
-      profile_fitness_goal TEXT DEFAULT 'weight_loss',
-      profile_workout_days TEXT DEFAULT 'mon_wed_fri',
+      user_id INTEGER NOT NULL DEFAULT 1,
       nutrition_calories INTEGER DEFAULT 2200,
       nutrition_protein INTEGER DEFAULT 150,
       nutrition_carbs INTEGER DEFAULT 250,
@@ -164,26 +185,47 @@ async function runMigrations() {
       notification_weekly_time TEXT DEFAULT '20:00',
       theme TEXT DEFAULT 'system',
       unit_system TEXT DEFAULT 'metric',
-      last_weekly_review_date TEXT
+      last_weekly_review_date TEXT,
+      is_premium INTEGER DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS app_security (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
+      pin_salt TEXT,
+      pin_hash TEXT,
+      pin_length INTEGER,
+      pin_set_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_workout_sessions_date ON workout_sessions(date)`,
     `CREATE INDEX IF NOT EXISTS idx_workout_exercises_session ON workout_exercises(session_id)`,
     `CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(exercise_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_meals_user ON meals(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_meals_date ON meals(date)`,
     `CREATE INDEX IF NOT EXISTS idx_meal_items_meal ON meal_items(meal_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_body_measurements_user ON body_measurements(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_body_measurements_date ON body_measurements(date)`,
+    `CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_goals_active ON goals(is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_daily_logs_user ON daily_logs(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(date)`,
+    `CREATE INDEX IF NOT EXISTS idx_hydration_entries_user ON hydration_entries(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_hydration_entries_date ON hydration_entries(date)`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_foods_user ON custom_foods(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_foods_name ON custom_foods(name)`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_workouts_user ON custom_workouts(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
     `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
     `CREATE TABLE IF NOT EXISTS custom_workouts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       name TEXT NOT NULL,
       description TEXT DEFAULT '',
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS custom_workout_exercises (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,6 +242,7 @@ async function runMigrations() {
     )`,
     `CREATE TABLE IF NOT EXISTS user_profile (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
       first_name TEXT NOT NULL,
       last_name TEXT DEFAULT '',
       age INTEGER,
@@ -212,14 +255,8 @@ async function runMigrations() {
       session_duration INTEGER DEFAULT 45,
       equipment TEXT DEFAULT 'no_equipment',
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS app_security (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      pin_salt TEXT,
-      pin_hash TEXT,
-      pin_length INTEGER,
-      pin_set_at TEXT
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
   ];
 
@@ -229,17 +266,8 @@ async function runMigrations() {
     }
   });
 
-  // Migration additive : colonne is_premium sur app_settings (installs existantes)
-  const settingsCols = await database.getAllAsync<{ name: string }>(
-    'PRAGMA table_info(app_settings)',
-    []
-  );
-  if (!settingsCols.some(c => c.name === 'is_premium')) {
-    await database.runAsync(
-      'ALTER TABLE app_settings ADD COLUMN is_premium INTEGER DEFAULT 0',
-      []
-    );
-  }
+  // Migration for existing installs: add user_id columns and create legacy account
+  await migrateToMultiUser(database);
 
   const settingsCount = await database.getFirstAsync<{ id: number }>(
     'SELECT id FROM app_settings LIMIT 1',
@@ -247,21 +275,19 @@ async function runMigrations() {
   );
 
   if (!settingsCount) {
+    const legacyUserId = await getOrCreateLegacyAccount(database);
     await database.runAsync(
       `INSERT INTO app_settings (
-        profile_name, profile_age, profile_sex, profile_height_cm, profile_current_weight_kg,
-        profile_activity_level, profile_fitness_goal, profile_workout_days,
-        nutrition_calories, nutrition_protein, nutrition_carbs, nutrition_fat, nutrition_hydration,
+        user_id, nutrition_calories, nutrition_protein, nutrition_carbs, nutrition_fat, nutrition_hydration,
         notification_workout_enabled, notification_workout_time,
         notification_hydration_enabled, notification_hydration_interval,
         notification_meal_enabled, notification_meal_time,
         notification_measurement_enabled, notification_measurement_interval,
         notification_weekly_enabled, notification_weekly_day, notification_weekly_time,
         theme, unit_system
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        '', null, 'male', 182, 116.2,
-        'sedentary', 'weight_loss', 'mon_wed_fri',
+        legacyUserId,
         2200, 150, 250, 70, 2.5,
         1, '08:00',
         1, 60,
@@ -272,6 +298,131 @@ async function runMigrations() {
       ]
     );
   }
+}
+
+/**
+ * Ensures a legacy account exists for pre-multi-user data.
+ * Returns the legacy account ID.
+ */
+async function getOrCreateLegacyAccount(database: SQLite.SQLiteDatabase): Promise<number> {
+  const existing = await database.getFirstAsync<{ id: number }>(
+    "SELECT id FROM user_accounts WHERE email = 'legacy@local.app' LIMIT 1",
+    []
+  );
+  if (existing) return existing.id;
+
+  const ts = new Date().toISOString();
+  const result = await database.runAsync(
+    "INSERT INTO user_accounts (email, password_hash, password_salt, display_name, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ['legacy@local.app', 'legacy-no-password', 'legacy-salt', 'Legacy User', ts, ts]
+  );
+  return result.lastInsertRowId;
+}
+
+/**
+ * Non-destructive migration for existing installs:
+ * - Adds user_id columns to user-owned tables if missing
+ * - Creates legacy account and assigns orphaned rows
+ * - Adds user_id to app_settings, app_security if missing
+ * - Migrates is_premium from old app_settings location
+ */
+async function migrateToMultiUser(database: SQLite.SQLiteDatabase): Promise<void> {
+  // Check if user_accounts table has rows (migration already ran)
+  const accountsCount = await database.getFirstAsync<{ cnt: number }>(
+    'SELECT COUNT(*) as cnt FROM user_accounts',
+    []
+  );
+  if (accountsCount && accountsCount.cnt > 0) return; // Already migrated
+
+  // Check if there's any existing data to migrate
+  const hasOldData = await database.getFirstAsync<{ cnt: number }>(
+    'SELECT COUNT(*) as cnt FROM user_profile',
+    []
+  );
+  if (!hasOldData || hasOldData.cnt === 0) return; // Fresh install, no migration needed
+
+  // Create legacy account for existing data
+  const legacyUserId = await getOrCreateLegacyAccount(database);
+
+  // Tables that need user_id added and existing rows assigned
+  const userOwnedTables = [
+    'workout_sessions', 'meals', 'body_measurements', 'goals',
+    'daily_logs', 'hydration_entries', 'custom_foods', 'custom_workouts',
+    'user_profile',
+  ];
+
+  await database.withTransactionAsync(async () => {
+    for (const table of userOwnedTables) {
+      // Check if user_id column exists
+      const cols = await database.getAllAsync<{ name: string }>(
+        `PRAGMA table_info(${table})`,
+        []
+      );
+      if (!cols.some(c => c.name === 'user_id')) {
+        await database.runAsync(
+          `ALTER TABLE ${table} ADD COLUMN user_id INTEGER NOT NULL DEFAULT ${legacyUserId}`,
+          []
+        );
+      }
+      // Assign all existing rows to legacy account
+      await database.runAsync(
+        `UPDATE ${table} SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
+        [legacyUserId]
+      );
+    }
+
+    // Migrate app_settings
+    const settingsCols = await database.getAllAsync<{ name: string }>(
+      'PRAGMA table_info(app_settings)',
+      []
+    );
+    if (!settingsCols.some(c => c.name === 'user_id')) {
+      await database.runAsync(
+        `ALTER TABLE app_settings ADD COLUMN user_id INTEGER NOT NULL DEFAULT ${legacyUserId}`,
+        []
+      );
+      // Copy profile data from old columns to new user_profile if needed
+      await database.runAsync(
+        `UPDATE app_settings SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
+        [legacyUserId]
+      );
+    }
+
+    // Migrate app_security
+    const securityCols = await database.getAllAsync<{ name: string }>(
+      'PRAGMA table_info(app_security)',
+      []
+    );
+    if (!securityCols.some(c => c.name === 'user_id')) {
+      await database.runAsync(
+        `ALTER TABLE app_security ADD COLUMN user_id INTEGER NOT NULL DEFAULT ${legacyUserId}`,
+        []
+      );
+      await database.runAsync(
+        `UPDATE app_security SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
+        [legacyUserId]
+      );
+    }
+
+    // Migrate is_premium from old location (was in app_settings without user_id)
+    const settingsPremium = await database.getAllAsync<{ name: string }>(
+      'PRAGMA table_info(app_settings)',
+      []
+    );
+    if (settingsPremium.some(c => c.name === 'is_premium')) {
+      // Migrate is_premium value to the legacy user's app_settings
+      const premRow = await database.getFirstAsync<{ is_premium: number }>(
+        'SELECT is_premium FROM app_settings WHERE user_id = ? LIMIT 1',
+        [legacyUserId]
+      );
+      if (premRow && premRow.is_premium) {
+        await database.runAsync(
+          'UPDATE app_settings SET is_premium = 1 WHERE user_id = ?',
+          [legacyUserId]
+        );
+      }
+    }
+  });
 }
 
 export async function closeDatabase() {
@@ -303,22 +454,9 @@ export async function clearAllData(): Promise<void> {
     await database.runAsync('DELETE FROM custom_foods', []);
     await database.runAsync('DELETE FROM user_profile', []);
     await database.runAsync('DELETE FROM app_security', []);
+    await database.runAsync('DELETE FROM app_session', []);
+    await database.runAsync('DELETE FROM user_accounts', []);
     // app_settings : re-seed des valeurs par defaut
     await database.runAsync('DELETE FROM app_settings', []);
-    await database.runAsync(
-      `INSERT INTO app_settings (
-        profile_name, profile_age, profile_sex, profile_height_cm, profile_current_weight_kg,
-        profile_activity_level, profile_fitness_goal, profile_workout_days,
-        nutrition_calories, nutrition_protein, nutrition_carbs, nutrition_fat, nutrition_hydration,
-        notification_workout_enabled, notification_workout_time,
-        notification_hydration_enabled, notification_hydration_interval,
-        notification_meal_enabled, notification_meal_time,
-        notification_measurement_enabled, notification_measurement_interval,
-        notification_weekly_enabled, notification_weekly_day, notification_weekly_time,
-        theme, unit_system
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['', null, 'male', 182, 116.2, 'sedentary', 'weight_loss', 'mon_wed_fri', 2200, 150, 250, 70, 2.5,
-       1, '08:00', 1, 60, 1, '12:00', 0, 7, 1, 'sunday', '20:00', 'system', 'metric']
-    );
   });
 }

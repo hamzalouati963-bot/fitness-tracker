@@ -19,6 +19,7 @@ import {
   userProfileRepo,
 } from '../database/repositories';
 import { getDatabase } from '../database';
+import { sessionManager } from '../utils/session';
 import { validateBackup, isBackupSizeAllowed } from '../utils/backup';
 import type { Recommendation } from '../models';
 import exercisesData from '../data/exercises.json';
@@ -447,22 +448,39 @@ export class BackupService {
    */
   async exportAll(): Promise<string> {
     const db = await getDatabase();
+    const userId = sessionManager.getCurrentUserId();
 
     const [
       workouts, workoutExercises, workoutSets,
       meals, mealItems,
       measurements, goals, logs, hydration, customFoods,
     ] = await Promise.all([
-      db.getAllAsync('SELECT * FROM workout_sessions ORDER BY id'),
-      db.getAllAsync('SELECT * FROM workout_exercises ORDER BY id'),
-      db.getAllAsync('SELECT * FROM workout_sets ORDER BY id'),
-      db.getAllAsync('SELECT * FROM meals ORDER BY id'),
-      db.getAllAsync('SELECT * FROM meal_items ORDER BY id'),
-      db.getAllAsync('SELECT * FROM body_measurements ORDER BY id'),
-      db.getAllAsync('SELECT * FROM goals ORDER BY id'),
-      db.getAllAsync('SELECT * FROM daily_logs ORDER BY id'),
-      db.getAllAsync('SELECT * FROM hydration_entries ORDER BY id'),
-      db.getAllAsync('SELECT * FROM custom_foods ORDER BY id'),
+      db.getAllAsync('SELECT * FROM workout_sessions WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync(
+        `SELECT we.* FROM workout_exercises we
+         JOIN workout_sessions ws ON we.session_id = ws.id
+         WHERE ws.user_id = ? ORDER BY we.id`,
+        [userId]
+      ),
+      db.getAllAsync(
+        `SELECT ws.* FROM workout_sets ws
+         JOIN workout_exercises we ON ws.exercise_id = we.id
+         JOIN workout_sessions wss ON we.session_id = wss.id
+         WHERE wss.user_id = ? ORDER BY ws.id`,
+        [userId]
+      ),
+      db.getAllAsync('SELECT * FROM meals WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync(
+        `SELECT mi.* FROM meal_items mi
+         JOIN meals m ON mi.meal_id = m.id
+         WHERE m.user_id = ? ORDER BY mi.id`,
+        [userId]
+      ),
+      db.getAllAsync('SELECT * FROM body_measurements WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM goals WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM daily_logs WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM hydration_entries WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM custom_foods WHERE user_id = ? ORDER BY id', [userId]),
     ]);
     const userProfile = await userProfileRepo.get();
     const settings = await settingsRepo.getProfile();
@@ -523,6 +541,7 @@ export class BackupService {
       }
 
       const db = await getDatabase();
+      const userId = sessionManager.getCurrentUserId();
 
       /**
        * Batch insert rows efficiently
@@ -548,17 +567,22 @@ export class BackupService {
         rows.map(r => columns.map(c => col(r, c)));
 
       await db.withTransactionAsync(async () => {
-        // 1) purge (ordre FK : enfants d'abord)
-        for (const t of ['workout_sets', 'workout_exercises', 'workout_sessions',
-          'meal_items', 'meals', 'body_measurements', 'goals', 'daily_logs',
-          'hydration_entries', 'custom_foods']) {
-          await db.runAsync(`DELETE FROM ${t}`, []);
-        }
+        // 1) purge current user's data only (ordre FK : enfants d'abord)
+        await db.runAsync('DELETE FROM workout_sets WHERE exercise_id IN (SELECT we.id FROM workout_exercises we JOIN workout_sessions ws ON we.session_id = ws.id WHERE ws.user_id = ?)', [userId]);
+        await db.runAsync('DELETE FROM workout_exercises WHERE session_id IN (SELECT id FROM workout_sessions WHERE user_id = ?)', [userId]);
+        await db.runAsync('DELETE FROM workout_sessions WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM meal_items WHERE meal_id IN (SELECT id FROM meals WHERE user_id = ?)', [userId]);
+        await db.runAsync('DELETE FROM meals WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM body_measurements WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM goals WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM daily_logs WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM hydration_entries WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM custom_foods WHERE user_id = ?', [userId]);
 
-        // 2) reinsertion dans l'ordre des dependances
+        // 2) reinsertion dans l'ordre des dependances (with user_id)
         await insertRows('workout_sessions',
-          ['id', 'date', 'start_time', 'end_time', 'duration_minutes', 'program_id', 'program_name', 'notes', 'created_at', 'updated_at'],
-          pick(parsed.workouts, ['id', 'date', 'start_time', 'end_time', 'duration_minutes', 'program_id', 'program_name', 'notes', 'created_at', 'updated_at']));
+          ['id', 'user_id', 'date', 'start_time', 'end_time', 'duration_minutes', 'program_id', 'program_name', 'notes', 'created_at', 'updated_at'],
+          pick(parsed.workouts, ['id', 'date', 'start_time', 'end_time', 'duration_minutes', 'program_id', 'program_name', 'notes', 'created_at', 'updated_at']).map(r => { r.splice(1, 0, userId); return r; }));
         await insertRows('workout_exercises',
           ['id', 'session_id', 'exercise_id', 'exercise_name', 'order_index', 'notes', 'created_at'],
           pick(parsed.workout_exercises, ['id', 'session_id', 'exercise_id', 'exercise_name', 'order_index', 'notes', 'created_at']));
@@ -566,26 +590,26 @@ export class BackupService {
           ['id', 'exercise_id', 'set_number', 'weight_kg', 'reps', 'completed', 'rpe', 'created_at'],
           pick(parsed.workout_sets, ['id', 'exercise_id', 'set_number', 'weight_kg', 'reps', 'completed', 'rpe', 'created_at']));
         await insertRows('meals',
-          ['id', 'date', 'meal_type', 'name', 'notes', 'created_at'],
-          pick(parsed.meals, ['id', 'date', 'meal_type', 'name', 'notes', 'created_at']));
+          ['id', 'user_id', 'date', 'meal_type', 'name', 'notes', 'created_at'],
+          pick(parsed.meals, ['id', 'date', 'meal_type', 'name', 'notes', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
         await insertRows('meal_items',
           ['id', 'meal_id', 'food_id', 'food_name', 'quantity', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
           pick(parsed.meal_items, ['id', 'meal_id', 'food_id', 'food_name', 'quantity', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']));
         await insertRows('body_measurements',
-          ['id', 'date', 'weight_kg', 'waist_cm', 'chest_cm', 'arm_cm', 'thigh_cm', 'body_fat_percent', 'muscle_mass_kg', 'bmi', 'water_percent', 'visceral_fat', 'phase_angle', 'source', 'notes', 'created_at'],
-          pick(parsed.body_measurements, ['id', 'date', 'weight_kg', 'waist_cm', 'chest_cm', 'arm_cm', 'thigh_cm', 'body_fat_percent', 'muscle_mass_kg', 'bmi', 'water_percent', 'visceral_fat', 'phase_angle', 'source', 'notes', 'created_at']));
+          ['id', 'user_id', 'date', 'weight_kg', 'waist_cm', 'chest_cm', 'arm_cm', 'thigh_cm', 'body_fat_percent', 'muscle_mass_kg', 'bmi', 'water_percent', 'visceral_fat', 'phase_angle', 'source', 'notes', 'created_at'],
+          pick(parsed.body_measurements, ['id', 'date', 'weight_kg', 'waist_cm', 'chest_cm', 'arm_cm', 'thigh_cm', 'body_fat_percent', 'muscle_mass_kg', 'bmi', 'water_percent', 'visceral_fat', 'phase_angle', 'source', 'notes', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
         await insertRows('goals',
-          ['id', 'goal_type', 'name', 'start_value', 'target_value', 'current_value', 'unit', 'start_date', 'target_date', 'is_active', 'notes', 'created_at', 'updated_at'],
-          pick(parsed.goals, ['id', 'goal_type', 'name', 'start_value', 'target_value', 'current_value', 'unit', 'start_date', 'target_date', 'is_active', 'notes', 'created_at', 'updated_at']));
+          ['id', 'user_id', 'goal_type', 'name', 'start_value', 'target_value', 'current_value', 'unit', 'start_date', 'target_date', 'is_active', 'notes', 'created_at', 'updated_at'],
+          pick(parsed.goals, ['id', 'goal_type', 'name', 'start_value', 'target_value', 'current_value', 'unit', 'start_date', 'target_date', 'is_active', 'notes', 'created_at', 'updated_at']).map(r => { r.splice(1, 0, userId); return r; }));
         await insertRows('daily_logs',
-          ['id', 'date', 'weight_kg', 'water_liters', 'sleep_hours', 'steps', 'workout_completed', 'nutrition_logged', 'mood', 'notes', 'created_at'],
-          pick(parsed.daily_logs, ['id', 'date', 'weight_kg', 'water_liters', 'sleep_hours', 'steps', 'workout_completed', 'nutrition_logged', 'mood', 'notes', 'created_at']));
+          ['id', 'user_id', 'date', 'weight_kg', 'water_liters', 'sleep_hours', 'steps', 'workout_completed', 'nutrition_logged', 'mood', 'notes', 'created_at'],
+          pick(parsed.daily_logs, ['id', 'date', 'weight_kg', 'water_liters', 'sleep_hours', 'steps', 'workout_completed', 'nutrition_logged', 'mood', 'notes', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
         await insertRows('hydration_entries',
-          ['id', 'date', 'time', 'amount_liters', 'source', 'created_at'],
-          pick(parsed.hydration_entries, ['id', 'date', 'time', 'amount_liters', 'source', 'created_at']));
+          ['id', 'user_id', 'date', 'time', 'amount_liters', 'source', 'created_at'],
+          pick(parsed.hydration_entries, ['id', 'date', 'time', 'amount_liters', 'source', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
         await insertRows('custom_foods',
-          ['id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
-          pick(parsed.custom_foods, ['id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']));
+          ['id', 'user_id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
+          pick(parsed.custom_foods, ['id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
 
         // 3) profils (app_settings via repositories)
         if (parsed.profile) {
@@ -595,11 +619,11 @@ export class BackupService {
           await settingsRepo.updateNutritionTargets(parsed.nutrition_targets);
         }
         if (parsed.user_profile) {
-          await db.runAsync('DELETE FROM user_profile', []);
+          await db.runAsync('DELETE FROM user_profile WHERE user_id = ?', [userId]);
           const up = parsed.user_profile;
           await insertRows('user_profile',
-            ['id', 'first_name', 'last_name', 'age', 'gender', 'height_cm', 'weight_kg', 'goal', 'fitness_level', 'training_days', 'session_duration', 'equipment', 'created_at', 'updated_at'],
-            [[col(up, 'id'), col(up, 'first_name'), col(up, 'last_name'), col(up, 'age'), col(up, 'gender'),
+            ['id', 'user_id', 'first_name', 'last_name', 'age', 'gender', 'height_cm', 'weight_kg', 'goal', 'fitness_level', 'training_days', 'session_duration', 'equipment', 'created_at', 'updated_at'],
+            [[col(up, 'id'), userId, col(up, 'first_name'), col(up, 'last_name'), col(up, 'age'), col(up, 'gender'),
               col(up, 'height_cm'), col(up, 'weight_kg'), col(up, 'goal'), col(up, 'fitness_level'),
               col(up, 'training_days'), col(up, 'session_duration'), col(up, 'equipment'),
               col(up, 'created_at'), col(up, 'updated_at')]]);

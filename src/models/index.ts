@@ -48,6 +48,7 @@ export interface AppAppearance {
 
 export interface WorkoutSession {
   id?: number;
+  user_id: number;
   date: string;
   start_time: string;
   end_time: string | null;
@@ -82,6 +83,7 @@ export interface WorkoutSet {
 
 export interface Meal {
   id?: number;
+  user_id: number;
   date: string;
   meal_type: MealType;
   name: string;
@@ -107,6 +109,7 @@ export interface MealItem {
 
 export interface BodyMeasurement {
   id?: number;
+  user_id: number;
   date: string;
   weight_kg: number | null;
   waist_cm: number | null;
@@ -126,6 +129,7 @@ export interface BodyMeasurement {
 
 export interface Goal {
   id?: number;
+  user_id: number;
   goal_type: GoalType;
   name: string;
   start_value: number;
@@ -144,6 +148,7 @@ export type GoalType = 'weight' | 'body_measurement' | 'workouts_per_week' | 'wo
 
 export interface DailyLog {
   id?: number;
+  user_id: number;
   date: string;
   weight_kg: number | null;
   water_liters: number | null;
@@ -158,6 +163,7 @@ export interface DailyLog {
 
 export interface HydrationEntry {
   id?: number;
+  user_id: number;
   date: string;
   time: string;
   amount_liters: number;
@@ -178,6 +184,7 @@ export interface Recommendation {
 
 export interface CustomFood {
   id?: number;
+  user_id: number;
   name: string;
   serving_size: number;
   unit: string;
@@ -190,6 +197,7 @@ export interface CustomFood {
 
 export interface CustomWorkout {
   id?: number;
+  user_id: number;
   name: string;
   description: string;
   created_at: string;
@@ -215,6 +223,7 @@ export type Equipment = 'no_equipment' | 'dumbbells' | 'barbell' | 'machines' | 
 
 export interface UserProfile {
   id?: number;
+  user_id: number;
   first_name: string;
   last_name: string;
   age: number | null;
@@ -228,4 +237,14 @@ export interface UserProfile {
   equipment: Equipment;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserAccount {
+  id?: number;
+  email: string;
+  password_hash: string;
+  password_salt: string;
+  display_name: string;
+  created_at: string;
+  last_login_at: string | null;
 }

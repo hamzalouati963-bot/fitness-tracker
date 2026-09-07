@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, Share, Modal, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { settingsRepo, securityRepo } from '../database/repositories';
+import { settingsRepo, securityRepo, accountRepo } from '../database/repositories';
 import { clearAllData } from '../database';
 import { BackupService } from '../services';
 import { DEFAULT_CALORIE_GOAL, DEFAULT_PROTEIN_GOAL_G, DEFAULT_CARBS_GOAL_G, DEFAULT_FAT_GOAL_G, DEFAULT_HYDRATION_LITERS } from '../constants';
 import { hashPin, generateSalt, isValidPin } from '../utils/crypto';
 import { usePremium } from '../hooks/usePremium';
+import { sessionManager } from '../utils/session';
 import type { FitnessGoal, ActivityLevel } from '../models';
 import type { MoreScreenProps } from '../navigation/types';
+
+type SettingsScreenProps = MoreScreenProps<'Settings'> & { onLogout?: () => void };
 
 type Theme = 'light' | 'dark' | 'system';
 type UnitSystem = 'metric' | 'imperial';
@@ -28,9 +31,11 @@ const fitnessGoals = [
   { id: 'endurance', label: 'Endurance' },
 ];
 
-export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings'>) {
+export default function SettingsScreen({ navigation, onLogout }: SettingsScreenProps) {
   const { isPremium, isLoading: premiumLoading, refresh: refreshPremium } = usePremium();
   const [hasPin, setHasPin] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [profile, setProfile] = useState<{
     name: string;
     age: string;
@@ -101,6 +106,18 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
         settingsRepo.getNotificationSettings(),
         settingsRepo.getAppearance(),
       ]);
+
+      // Load account info
+      try {
+        const userId = sessionManager.tryGetCurrentUserId();
+        if (userId) {
+          const account = await accountRepo.getAccountById(userId);
+          if (account) {
+            setAccountEmail(account.email);
+            setAccountName(account.display_name);
+          }
+        }
+      } catch (_e) { /* ignore */ }
 
       setProfile({
         name: prof.name,
@@ -358,6 +375,22 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
     );
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'You will be returned to the sign-in screen. Your data is safe.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          onPress: () => {
+            onLogout?.();
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -392,6 +425,27 @@ export default function SettingsScreen({ navigation }: MoreScreenProps<'Settings
               </Text>
             </View>
           </View>
+        </View>
+      </View>
+
+      {/* Account */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Icon name="account-circle" size={20} color="#2563EB" />
+          <Text style={styles.sectionTitle}>ACCOUNT</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutLabel}>Email</Text>
+            <Text style={styles.aboutValue}>{accountEmail || '—'}</Text>
+          </View>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutLabel}>Name</Text>
+            <Text style={styles.aboutValue}>{accountName || '—'}</Text>
+          </View>
+          <TouchableOpacity style={[styles.saveChip, { backgroundColor: '#EF4444', marginTop: 12 }]} onPress={handleLogout}>
+            <Text style={styles.saveChipText}>Log Out</Text>
+          </TouchableOpacity>
         </View>
       </View>
 

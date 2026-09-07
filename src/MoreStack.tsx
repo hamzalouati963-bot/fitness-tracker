@@ -51,7 +51,11 @@ const menuItems: MoreMenuItem[] = [
   { id: 'weekly', label: 'Weekly Review', icon: 'assessment', screen: 'WeeklyReview', color: '#7C3AED' },
 ];
 
-export default function MoreStack() {
+type MoreStackProps = {
+  onLogout?: () => void;
+};
+
+export default function MoreStack({ onLogout }: MoreStackProps) {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -79,7 +83,9 @@ export default function MoreStack() {
       <Stack.Screen name="Goals" component={GoalsScreen} />
       <Stack.Screen name="Calculators" component={CalculatorsScreen} />
       <Stack.Screen name="Journal" component={JournalScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Settings">
+        {(props) => <SettingsScreen {...props} onLogout={onLogout} />}
+      </Stack.Screen>
       <Stack.Screen name="Hydration" component={HydrationScreen} />
       <Stack.Screen name="Measurements" component={MeasurementsScreen} />
       <Stack.Screen name="Exercises" component={ExerciseLibraryScreen} />
