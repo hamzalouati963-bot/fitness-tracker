@@ -33,46 +33,48 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
+        // PHASE A — DATABASE BOOTSTRAP (no user required)
         await getDatabase();
 
-        // Try to restore session
+        // PHASE B — USER SESSION INITIALIZATION
         const activeUserId = await sessionManager.restoreSession();
 
         if (activeUserId) {
-          // Verify the user still exists
           const account = await accountRepo.getAccountById(activeUserId);
           if (account) {
-            // Check PIN
+            // Session valid — load user-dependent data
             const sec = await securityRepo.getSecurity();
             setSecurity(sec);
             setAuthView(null);
+
+            const profile = await userProfileRepo.get();
+            setHasProfile(!!profile);
           } else {
-            // Account was deleted, clear session
+            // Account was deleted — clear session, show auth
             await sessionManager.clearSession();
+            setHasProfile(null);
             const accountCount = await accountRepo.getAccountCount();
             setAuthView(accountCount > 0 ? 'login' : 'register');
           }
         } else {
-          // No active session
+          // No session — show auth, do NOT query user data
+          setHasProfile(null);
           const accountCount = await accountRepo.getAccountCount();
           setAuthView(accountCount > 0 ? 'login' : 'register');
         }
 
-        const profile = await userProfileRepo.get();
-        setHasProfile(!!profile);
         setReady(true);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         const stack = e instanceof Error && e.stack ? e.stack : '';
-        console.error('DB init failed', e);
-        setError(`Database initialization failed\n\n${msg}\n\n${stack}`.slice(0, 1000));
+        console.error('App init failed', e);
+        setError(`Initialization failed\n\n${msg}\n\n${stack}`.slice(0, 1000));
       }
     })();
   }, []);
 
   const handleAuthDone = useCallback(() => {
     setAuthView(null);
-    // After login/register, session is set. Now check profile + PIN.
     (async () => {
       try {
         const profile = await userProfileRepo.get();
@@ -117,7 +119,6 @@ export default function App() {
     );
   }
 
-  // Auth gate: login or register
   if (authView === 'login') {
     return (
       <LoginScreen
@@ -136,12 +137,10 @@ export default function App() {
     );
   }
 
-  // Profile setup (onboarding)
   if (hasProfile === false) {
     return <OnboardingScreen onDone={handleOnboardingDone} />;
   }
 
-  // PIN lock
   if (security && !unlocked) {
     return (
       <LockScreen
@@ -153,7 +152,6 @@ export default function App() {
     );
   }
 
-  // Main app
   return (
     <NavigationContainer>
       <Tab.Navigator
