@@ -1134,7 +1134,6 @@ export class CustomWorkoutRepository {
     const db = await getDatabase();
     const userId = uid();
     await db.withTransactionAsync(async () => {
-      await db.runAsync('DELETE FROM custom_workout_exercises WHERE custom_workout_id = ?', [id]);
       await db.runAsync('DELETE FROM custom_workouts WHERE id = ? AND user_id = ?', [id, userId]);
     });
   }

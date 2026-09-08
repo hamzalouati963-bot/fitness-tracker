@@ -433,30 +433,29 @@ export async function closeDatabase() {
 }
 
 /**
- * Supprime TOUTES les donnees de tracking + profils, de facon transactionnelle.
- * Les structures (tables/index) sont conservees. Retourne le nombre de lignes supprimees.
+ * Supprime TOUTES les donnees de tracking + profils de l'utilisateur actif.
+ * Les structures (tables/index) sont conservees. Seules les donnees de l'utilisateur courant sont supprimees.
  */
 export async function clearAllData(): Promise<void> {
+  const { sessionManager } = await import('../utils/session');
+  const userId = sessionManager.getCurrentUserId();
   const database = await getDatabase();
   await database.withTransactionAsync(async () => {
-    // Ordre respectant les FK (enfants d'abord)
-    await database.runAsync('DELETE FROM workout_sets', []);
-    await database.runAsync('DELETE FROM workout_exercises', []);
-    await database.runAsync('DELETE FROM workout_sessions', []);
-    await database.runAsync('DELETE FROM meal_items', []);
-    await database.runAsync('DELETE FROM meals', []);
-    await database.runAsync('DELETE FROM custom_workout_exercises', []);
-    await database.runAsync('DELETE FROM custom_workouts', []);
-    await database.runAsync('DELETE FROM body_measurements', []);
-    await database.runAsync('DELETE FROM goals', []);
-    await database.runAsync('DELETE FROM daily_logs', []);
-    await database.runAsync('DELETE FROM hydration_entries', []);
-    await database.runAsync('DELETE FROM custom_foods', []);
-    await database.runAsync('DELETE FROM user_profile', []);
-    await database.runAsync('DELETE FROM app_security', []);
-    await database.runAsync('DELETE FROM app_session', []);
-    await database.runAsync('DELETE FROM user_accounts', []);
-    // app_settings : re-seed des valeurs par defaut
-    await database.runAsync('DELETE FROM app_settings', []);
+    // Ordre respectant les FK (enfants d'abord) — scoped par user_id
+    await database.runAsync('DELETE FROM workout_sets WHERE exercise_id IN (SELECT we.id FROM workout_exercises we JOIN workout_sessions ws ON we.session_id = ws.id WHERE ws.user_id = ?)', [userId]);
+    await database.runAsync('DELETE FROM workout_exercises WHERE session_id IN (SELECT id FROM workout_sessions WHERE user_id = ?)', [userId]);
+    await database.runAsync('DELETE FROM workout_sessions WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM meal_items WHERE meal_id IN (SELECT id FROM meals WHERE user_id = ?)', [userId]);
+    await database.runAsync('DELETE FROM meals WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM custom_workout_exercises WHERE custom_workout_id IN (SELECT id FROM custom_workouts WHERE user_id = ?)', [userId]);
+    await database.runAsync('DELETE FROM custom_workouts WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM body_measurements WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM goals WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM daily_logs WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM hydration_entries WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM custom_foods WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM user_profile WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM app_security WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM app_settings WHERE user_id = ?', [userId]);
   });
 }
