@@ -38,7 +38,7 @@ jobs:
 
       # 5) Android SDK
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       # 6) Platform 34 + Build Tools + NDK (ndkVersion = 25.1.8937393 dans android/build.gradle)
       - name: Install Android SDK components
