@@ -30,7 +30,20 @@
         {
           "backgroundColor": "#F9FAFB"
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Fitness Tracker to access your camera for barcode scanning and progress photos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Fitness Tracker to access your photos for meal and progress photos."
+        }
+      ],
+      "expo-localization"
     ],
     "ios": {
       "bundleIdentifier": "com.hamzalouati.fitnesstracker",

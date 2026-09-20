@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, FlatList } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { Camera } from 'expo-camera';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import type { MoreScreenProps } from '../navigation/types';
 import { foods as builtInFoods } from '../services';
 import { nutritionRepo } from '../database/repositories';
-import type { CustomFood } from '../models';
 
 interface FoundFood {
   id: string;
@@ -20,7 +19,7 @@ interface FoundFood {
 }
 
 export default function BarcodeScannerScreen({ navigation }: MoreScreenProps<'BarcodeScanner'>) {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
@@ -28,9 +27,10 @@ export default function BarcodeScannerScreen({ navigation }: MoreScreenProps<'Ba
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (!permission?.granted) {
-      requestPermission();
-    }
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
   }, []);
 
   const lookupBarcode = async (barcode: string) => {
@@ -97,7 +97,7 @@ export default function BarcodeScannerScreen({ navigation }: MoreScreenProps<'Ba
     }
   };
 
-  if (!permission) {
+  if (hasPermission === null) {
     return (
       <View style={styles.centered}>
         <Text style={styles.infoText}>Requesting camera permission...</Text>
@@ -105,12 +105,15 @@ export default function BarcodeScannerScreen({ navigation }: MoreScreenProps<'Ba
     );
   }
 
-  if (!permission.granted) {
+  if (!hasPermission) {
     return (
       <View style={styles.centered}>
         <Icon name="camera-alt" size={64} color="#9CA3AF" />
         <Text style={styles.infoText}>Camera permission is required for barcode scanning</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+        <TouchableOpacity style={styles.permissionButton} onPress={async () => {
+          const { status } = await Camera.requestCameraPermissionsAsync();
+          setHasPermission(status === 'granted');
+        }}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.permissionButton, { backgroundColor: '#6B7280', marginTop: 12 }]} onPress={() => setShowManualInput(true)}>
@@ -150,12 +153,12 @@ export default function BarcodeScannerScreen({ navigation }: MoreScreenProps<'Ba
 
       {!showManualInput && !foundFoods.length && !notFound && (
         <View style={styles.cameraContainer}>
-          <CameraView
+          <Camera
             style={styles.camera}
-            barcodeScannerSettings={{
-              barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
+            onBarCodeScanned={scanned ? undefined : ({ data }: { data: string }) => lookupBarcode(data)}
+            barCodeScannerSettings={{
+              barCodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
             }}
-            onBarcodeScanned={scanned ? undefined : ({ data }) => lookupBarcode(data)}
           />
           <View style={styles.scanOverlay}>
             <View style={styles.scanFrame} />

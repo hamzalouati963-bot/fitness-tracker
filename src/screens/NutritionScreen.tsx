@@ -115,7 +115,7 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
             return;
           }
           const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images'],
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
             quality: 0.5,
             allowsEditing: true,
           });
@@ -129,7 +129,7 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
         text: 'Choose from Library',
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
             quality: 0.5,
             allowsEditing: true,
           });
