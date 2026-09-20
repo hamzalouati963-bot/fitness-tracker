@@ -28,6 +28,9 @@ export default function DashboardScreen({ navigation }: TabScreenProps<'Home'>) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [weeklyCount, setWeeklyCount] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalWorkouts, setTotalWorkouts] = useState(0);
+  const [totalVolume, setTotalVolume] = useState(0);
 
   const getGreeting = (): string => {
     const hour = new Date().getHours();
@@ -71,6 +74,15 @@ export default function DashboardScreen({ navigation }: TabScreenProps<'Home'>) 
       const weekEnd = getEndOfWeekLocal();
       const wCount = await workoutRepo.getWeeklySessionCount(weekStart, weekEnd);
       setWeeklyCount(wCount);
+
+      const [streak, total, volume] = await Promise.all([
+        workoutRepo.getCurrentStreak(),
+        workoutRepo.getTotalWorkoutCount(),
+        workoutRepo.getTotalVolume(),
+      ]);
+      setCurrentStreak(streak);
+      setTotalWorkouts(total);
+      setTotalVolume(volume);
 
       const recommendationService = new RecommendationService(
         workoutRepo, nutritionRepo, measurementRepo, goalRepo,
@@ -244,15 +256,23 @@ export default function DashboardScreen({ navigation }: TabScreenProps<'Home'>) 
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
+            <Text style={styles.statValue}>{currentStreak}</Text>
+            <Text style={styles.statLabel}>Day Streak 🔥</Text>
+          </View>
+          <View style={styles.statCard}>
             <Text style={styles.statValue}>{weeklyCount}</Text>
             <Text style={styles.statLabel}>Workouts this week</Text>
           </View>
-          {profile && (
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{profile.training_days || 3}</Text>
-              <Text style={styles.statLabel}>Target days/week</Text>
-            </View>
-          )}
+        </View>
+        <View style={[styles.statsRow, { marginTop: 8 }]}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{totalWorkouts}</Text>
+            <Text style={styles.statLabel}>Total Workouts</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}</Text>
+            <Text style={styles.statLabel}>Total Volume (kg)</Text>
+          </View>
         </View>
       </View>
 

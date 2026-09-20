@@ -22,6 +22,10 @@ import CreateCustomWorkoutScreen from './screens/CreateCustomWorkoutScreen';
 import ExercisePickerScreen from './screens/ExercisePickerScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import CustomFoodsScreen from './screens/CustomFoodsScreen';
+import PersonalRecordsScreen from './screens/PersonalRecordsScreen';
+import AchievementsScreen from './screens/AchievementsScreen';
+import ProgressPhotosScreen from './screens/ProgressPhotosScreen';
+import StrengthBalanceScreen from './screens/StrengthBalanceScreen';
 
 const Stack = createStackNavigator<MoreStackParamList>();
 
@@ -49,6 +53,10 @@ const menuItems: MoreMenuItem[] = [
   { id: 'custom_foods', label: 'Custom Foods', icon: 'restaurant-menu', screen: 'CustomFoods', color: '#D97706' },
   { id: 'suggestions', label: 'Suggestions', icon: 'lightbulb', screen: 'Recommendations', color: '#F59E0B' },
   { id: 'weekly', label: 'Weekly Review', icon: 'assessment', screen: 'WeeklyReview', color: '#7C3AED' },
+  { id: 'personal_records', label: 'Personal Records', icon: 'emoji-events', screen: 'PersonalRecords', color: '#F59E0B' },
+  { id: 'achievements', label: 'Achievements', icon: 'military-tech', screen: 'Achievements', color: '#8B5CF6' },
+  { id: 'progress_photos', label: 'Progress Photos', icon: 'photo-camera', screen: 'ProgressPhotos', color: '#059669' },
+  { id: 'strength_balance', label: 'Strength Balance', icon: 'balance', screen: 'StrengthBalance', color: '#DC2626' },
 ];
 
 type MoreStackProps = {
@@ -99,6 +107,10 @@ export default function MoreStack({ onLogout }: MoreStackProps) {
       <Stack.Screen name="CustomWorkouts" component={CustomWorkoutsScreen} />
       <Stack.Screen name="CreateCustomWorkout" component={CreateCustomWorkoutScreen} />
       <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
+      <Stack.Screen name="PersonalRecords" component={PersonalRecordsScreen} />
+      <Stack.Screen name="Achievements" component={AchievementsScreen} />
+      <Stack.Screen name="ProgressPhotos" component={ProgressPhotosScreen} />
+      <Stack.Screen name="StrengthBalance" component={StrengthBalanceScreen} />
     </Stack.Navigator>
   );
 }
@@ -117,7 +129,7 @@ function MoreHomeScreen({ navigation }: MoreScreenProps<'MoreHome'>) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>TRACKING</Text>
         <View style={styles.menuGrid}>
-          {menuItems.filter(item => ['profile', 'goals', 'measurements', 'hydration'].includes(item.id)).map((item) => (
+          {menuItems.filter(item => ['profile', 'goals', 'measurements', 'hydration', 'progress_photos', 'strength_balance'].includes(item.id)).map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuCard}
@@ -153,7 +165,7 @@ function MoreHomeScreen({ navigation }: MoreScreenProps<'MoreHome'>) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>ANALYTICS & CONFIG</Text>
         <View style={styles.menuGrid}>
-          {menuItems.filter(item => ['calculators', 'foods', 'custom_foods', 'suggestions', 'weekly', 'settings'].includes(item.id)).map((item) => (
+          {menuItems.filter(item => ['calculators', 'foods', 'custom_foods', 'suggestions', 'weekly', 'personal_records', 'achievements', 'settings'].includes(item.id)).map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuCard}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { workoutRepo, dailyLogRepo } from '../database/repositories';
+import { workoutRepo, dailyLogRepo, personalRecordRepo } from '../database/repositories';
 import type { WorkoutExercise, WorkoutSet } from '../models';
 import { timeNow, todayLocal } from '../services';
 import type { TabScreenProps } from '../navigation/types';
@@ -122,6 +122,20 @@ export default function WorkoutScreen({ navigation, route }: TabScreenProps<'Wor
       const updatedSets = await workoutRepo.getSetsByExercise(exercise.id!);
       setSets(updatedSets);
       setCurrentSet({ weight: '', reps: '' });
+
+      try {
+        const newPRs = await personalRecordRepo.checkAndUpdatePR(
+          exercise.exercise_id,
+          exercise.exercise_name,
+          weight,
+          reps,
+          exercise.session_id
+        );
+        if (newPRs.length > 0) {
+          const prNames = newPRs.map(pr => pr.record_type.replace('max_', '').replace('_', ' ')).join(', ');
+          Alert.alert('New Personal Record!', `You set a new ${prNames} for ${exercise.exercise_name}!`);
+        }
+      } catch (_e) { /* PR check is non-critical */ }
     } catch (e) {
       console.error('Failed to add set:', e);
       Alert.alert('Error', 'Impossible to save the set. Please try again.');

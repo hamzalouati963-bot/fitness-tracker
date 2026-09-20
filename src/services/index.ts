@@ -454,6 +454,7 @@ export class BackupService {
       workouts, workoutExercises, workoutSets,
       meals, mealItems,
       measurements, goals, logs, hydration, customFoods,
+      personalRecords, achievements, progressPhotos,
     ] = await Promise.all([
       db.getAllAsync('SELECT * FROM workout_sessions WHERE user_id = ? ORDER BY id', [userId]),
       db.getAllAsync(
@@ -481,13 +482,16 @@ export class BackupService {
       db.getAllAsync('SELECT * FROM daily_logs WHERE user_id = ? ORDER BY id', [userId]),
       db.getAllAsync('SELECT * FROM hydration_entries WHERE user_id = ? ORDER BY id', [userId]),
       db.getAllAsync('SELECT * FROM custom_foods WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM personal_records WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM achievements WHERE user_id = ? ORDER BY id', [userId]),
+      db.getAllAsync('SELECT * FROM progress_photos WHERE user_id = ? ORDER BY id', [userId]),
     ]);
     const userProfile = await userProfileRepo.get();
     const settings = await settingsRepo.getProfile();
     const nutritionTargets = await settingsRepo.getNutritionTargets();
 
     const backup = {
-      version: '2.0',
+      version: '2.1',
       exported_at: new Date().toISOString(),
       workouts,
       workout_exercises: workoutExercises,
@@ -499,6 +503,9 @@ export class BackupService {
       daily_logs: logs,
       hydration_entries: hydration,
       custom_foods: customFoods,
+      personal_records: personalRecords,
+      achievements,
+      progress_photos: progressPhotos,
       user_profile: userProfile,
       profile: settings,
       nutrition_targets: nutritionTargets,
@@ -578,6 +585,9 @@ export class BackupService {
         await db.runAsync('DELETE FROM daily_logs WHERE user_id = ?', [userId]);
         await db.runAsync('DELETE FROM hydration_entries WHERE user_id = ?', [userId]);
         await db.runAsync('DELETE FROM custom_foods WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM personal_records WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM achievements WHERE user_id = ?', [userId]);
+        await db.runAsync('DELETE FROM progress_photos WHERE user_id = ?', [userId]);
 
         // 2) reinsertion dans l'ordre des dependances (with user_id)
         await insertRows('workout_sessions',
@@ -610,6 +620,22 @@ export class BackupService {
         await insertRows('custom_foods',
           ['id', 'user_id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
           pick(parsed.custom_foods, ['id', 'name', 'serving_size', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
+
+        if (parsed.personal_records && Array.isArray(parsed.personal_records)) {
+          await insertRows('personal_records',
+            ['id', 'user_id', 'exercise_id', 'exercise_name', 'record_type', 'value', 'unit', 'workout_session_id', 'achieved_at', 'created_at'],
+            pick(parsed.personal_records, ['id', 'exercise_id', 'exercise_name', 'record_type', 'value', 'unit', 'workout_session_id', 'achieved_at', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
+        }
+        if (parsed.achievements && Array.isArray(parsed.achievements)) {
+          await insertRows('achievements',
+            ['id', 'user_id', 'badge_id', 'badge_name', 'badge_icon', 'badge_description', 'category', 'achieved_at', 'created_at'],
+            pick(parsed.achievements, ['id', 'badge_id', 'badge_name', 'badge_icon', 'badge_description', 'category', 'achieved_at', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
+        }
+        if (parsed.progress_photos && Array.isArray(parsed.progress_photos)) {
+          await insertRows('progress_photos',
+            ['id', 'user_id', 'date', 'photo_uri', 'photo_type', 'notes', 'weight_kg', 'created_at'],
+            pick(parsed.progress_photos, ['id', 'date', 'photo_uri', 'photo_type', 'notes', 'weight_kg', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
+        }
 
         // 3) profils (app_settings via repositories)
         if (parsed.profile) {

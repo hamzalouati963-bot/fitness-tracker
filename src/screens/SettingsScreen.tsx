@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { settingsRepo, securityRepo, accountRepo } from '../database/repositories';
 import { clearAllData } from '../database';
 import { BackupService } from '../services';
+import { exportAllDataCSV, exportWorkoutsCSV, exportNutritionCSV, exportMeasurementsCSV } from '../utils/export';
 import { DEFAULT_CALORIE_GOAL, DEFAULT_PROTEIN_GOAL_G, DEFAULT_CARBS_GOAL_G, DEFAULT_FAT_GOAL_G, DEFAULT_HYDRATION_LITERS } from '../constants';
 import { hashPin, generateSalt, isValidPin } from '../utils/crypto';
 import { usePremium } from '../hooks/usePremium';
@@ -302,6 +303,25 @@ export default function SettingsScreen({ navigation, onLogout }: SettingsScreenP
     } catch (e) {
       console.error('Failed to export data:', e);
       Alert.alert('Error', 'Impossible to export data.');
+    }
+  };
+
+  const exportCSV = async (type: 'all' | 'workouts' | 'nutrition' | 'measurements') => {
+    try {
+      let csv = '';
+      switch (type) {
+        case 'all': csv = await exportAllDataCSV(); break;
+        case 'workouts': csv = await exportWorkoutsCSV(); break;
+        case 'nutrition': csv = await exportNutritionCSV(); break;
+        case 'measurements': csv = await exportMeasurementsCSV(); break;
+      }
+      await Share.share({
+        title: `Fitness Tracker ${type} export`,
+        message: csv,
+      });
+    } catch (e) {
+      console.error('Failed to export CSV:', e);
+      Alert.alert('Error', 'Failed to export CSV.');
     }
   };
 
@@ -739,7 +759,23 @@ export default function SettingsScreen({ navigation, onLogout }: SettingsScreenP
         <View style={styles.card}>
           <TouchableOpacity style={styles.backupButton} onPress={exportData}>
             <Icon name="file-download" size={20} color="#2563EB" />
-            <Text style={styles.backupButtonText}>Export Data</Text>
+            <Text style={styles.backupButtonText}>Export Data (JSON)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backupButton} onPress={() => exportCSV('all')}>
+            <Icon name="table-chart" size={20} color="#059669" />
+            <Text style={styles.backupButtonText}>Export All (CSV)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backupButton} onPress={() => exportCSV('workouts')}>
+            <Icon name="table-chart" size={20} color="#059669" />
+            <Text style={styles.backupButtonText}>Export Workouts (CSV)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backupButton} onPress={() => exportCSV('nutrition')}>
+            <Icon name="table-chart" size={20} color="#059669" />
+            <Text style={styles.backupButtonText}>Export Nutrition (CSV)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backupButton} onPress={() => exportCSV('measurements')}>
+            <Icon name="table-chart" size={20} color="#059669" />
+            <Text style={styles.backupButtonText}>Export Measurements (CSV)</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.backupButton} onPress={importData}>
             <Icon name="file-upload" size={20} color="#2563EB" />

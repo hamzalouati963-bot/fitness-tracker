@@ -35,17 +35,17 @@ export function validateBackup(json: unknown): BackupValidation {
     }
     return { valid: true, version: '1.0' };
   }
-  if (data.version === '2.0') {
+  if (data.version === '2.0' || data.version === '2.1') {
     for (const table of REQUIRED_V2_TABLES) {
       const rows = data[table];
       if (!Array.isArray(rows)) {
-        return { valid: false, version: '2.0', error: `Invalid backup: missing table "${table}"` };
+        return { valid: false, version: data.version as string, error: `Invalid backup: missing table "${table}"` };
       }
       if (rows.some(row => typeof row !== 'object' || row === null)) {
-        return { valid: false, version: '2.0', error: `Invalid backup: malformed rows in "${table}"` };
+        return { valid: false, version: data.version as string, error: `Invalid backup: malformed rows in "${table}"` };
       }
     }
-    return { valid: true, version: '2.0' };
+    return { valid: true, version: data.version as string };
   }
   return { valid: false, version: data.version, error: `Unsupported backup version: ${data.version}` };
 }

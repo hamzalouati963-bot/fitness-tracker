@@ -33,6 +33,10 @@ export type MoreStackParamList = {
   CustomFoods: undefined;
   Recommendations: undefined;
   WeeklyReview: undefined;
+  PersonalRecords: undefined;
+  Achievements: undefined;
+  ProgressPhotos: undefined;
+  StrengthBalance: undefined;
 };
 
 // ─── Screen Props Helpers ──────────────────────────────────────────────────

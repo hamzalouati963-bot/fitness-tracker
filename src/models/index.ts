@@ -248,3 +248,63 @@ export interface UserAccount {
   created_at: string;
   last_login_at: string | null;
 }
+
+export interface PersonalRecord {
+  id?: number;
+  user_id: number;
+  exercise_id: string;
+  exercise_name: string;
+  record_type: 'max_weight' | 'max_reps' | 'max_volume' | 'max_1rm';
+  value: number;
+  unit: string;
+  workout_session_id: number | null;
+  achieved_at: string;
+  created_at: string;
+}
+
+export interface Achievement {
+  id?: number;
+  user_id: number;
+  badge_id: string;
+  badge_name: string;
+  badge_icon: string;
+  badge_description: string;
+  category: 'workout' | 'nutrition' | 'consistency' | 'measurement' | 'streak';
+  achieved_at: string;
+  created_at: string;
+}
+
+export interface ProgressPhoto {
+  id?: number;
+  user_id: number;
+  date: string;
+  photo_uri: string;
+  photo_type: 'front' | 'side' | 'back' | 'other';
+  notes: string;
+  weight_kg: number | null;
+  created_at: string;
+}
+
+export interface WorkoutTemplate {
+  id?: number;
+  user_id: number;
+  name: string;
+  description: string;
+  exercises: WorkoutTemplateExercise[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkoutTemplateExercise {
+  id?: number;
+  template_id: number;
+  exercise_id: string;
+  exercise_name: string;
+  order_index: number;
+  sets: number;
+  reps: number;
+  weight_kg: number;
+  rest_seconds: number;
+  superset_group: number | null;
+  notes: string;
+}

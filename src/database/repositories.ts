@@ -331,6 +331,87 @@ export class WorkoutRepository {
       [userId, today]
     );
   }
+
+  async getCurrentStreak(): Promise<number> {
+    const db = await getDatabase();
+    const userId = uid();
+    const rows = await db.getAllAsync<{ date: string }>(
+      `SELECT DISTINCT date FROM workout_sessions
+       WHERE user_id = ? AND end_time IS NOT NULL
+       ORDER BY date DESC`,
+      [userId]
+    );
+    if (rows.length === 0) return 0;
+
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const workoutDates = new Set(rows.map(r => r.date));
+
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() - i);
+      const dateStr = formatDateLocal(checkDate);
+      if (workoutDates.has(dateStr)) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  async getLongestStreak(): Promise<number> {
+    const db = await getDatabase();
+    const userId = uid();
+    const rows = await db.getAllAsync<{ date: string }>(
+      `SELECT DISTINCT date FROM workout_sessions
+       WHERE user_id = ? AND end_time IS NOT NULL
+       ORDER BY date ASC`,
+      [userId]
+    );
+    if (rows.length === 0) return 0;
+
+    let longest = 1;
+    let current = 1;
+    for (let i = 1; i < rows.length; i++) {
+      const prev = new Date(rows[i - 1].date);
+      const curr = new Date(rows[i].date);
+      const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        current++;
+        if (current > longest) longest = current;
+      } else {
+        current = 1;
+      }
+    }
+    return longest;
+  }
+
+  async getTotalWorkoutCount(): Promise<number> {
+    const db = await getDatabase();
+    const userId = uid();
+    const result = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM workout_sessions WHERE user_id = ? AND end_time IS NOT NULL',
+      [userId]
+    );
+    return result?.count ?? 0;
+  }
+
+  async getTotalVolume(): Promise<number> {
+    const db = await getDatabase();
+    const userId = uid();
+    const result = await db.getFirstAsync<{ total: number }>(
+      `SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) as total
+       FROM workout_sets ws
+       JOIN workout_exercises we ON ws.exercise_id = we.id
+       JOIN workout_sessions wss ON we.session_id = wss.id
+       WHERE wss.user_id = ?`,
+      [userId]
+    );
+    return result?.total ?? 0;
+  }
 }
 
 // ─── Nutrition Repository ────────────────────────────────────────────────────
@@ -1212,6 +1293,194 @@ export class CustomWorkoutRepository {
   }
 }
 
+// ─── Personal Record Repository ──────────────────────────────────────────────
+
+export class PersonalRecordRepository {
+  async getRecordsForExercise(exerciseId: string): Promise<import('../models').PersonalRecord[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    return db.getAllAsync<import('../models').PersonalRecord>(
+      'SELECT * FROM personal_records WHERE user_id = ? AND exercise_id = ? ORDER BY achieved_at DESC',
+      [userId, exerciseId]
+    );
+  }
+
+  async getAllRecords(): Promise<import('../models').PersonalRecord[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    return db.getAllAsync<import('../models').PersonalRecord>(
+      `SELECT pr.* FROM personal_records pr
+       INNER JOIN (
+         SELECT exercise_id, record_type, MAX(value) as max_value
+         FROM personal_records WHERE user_id = ?
+         GROUP BY exercise_id, record_type
+       ) latest ON pr.exercise_id = latest.exercise_id
+         AND pr.record_type = latest.record_type
+         AND pr.value = latest.max_value
+       WHERE pr.user_id = ?
+       ORDER BY pr.exercise_name, pr.record_type`,
+      [userId, userId]
+    );
+  }
+
+  async checkAndUpdatePR(
+    exerciseId: string,
+    exerciseName: string,
+    weightKg: number,
+    reps: number,
+    sessionId: number
+  ): Promise<import('../models').PersonalRecord[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    const ts = now();
+    const newRecords: import('../models').PersonalRecord[] = [];
+    const volume = weightKg * reps;
+    const estimated1RM = weightKg * (1 + reps / 30);
+
+    const checks = [
+      { type: 'max_weight', value: weightKg, unit: 'kg' },
+      { type: 'max_reps', value: reps, unit: 'reps' },
+      { type: 'max_volume', value: volume, unit: 'kg*reps' },
+      { type: 'max_1rm', value: estimated1RM, unit: 'estimated_kg' },
+    ] as const;
+
+    for (const check of checks) {
+      const existing = await db.getFirstAsync<{ value: number }>(
+        'SELECT value FROM personal_records WHERE user_id = ? AND exercise_id = ? AND record_type = ? ORDER BY value DESC LIMIT 1',
+        [userId, exerciseId, check.type]
+      );
+
+      if (!existing || check.value > existing.value) {
+        const result = await db.runAsync(
+          `INSERT INTO personal_records (user_id, exercise_id, exercise_name, record_type, value, unit, workout_session_id, achieved_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, exerciseId, exerciseName, check.type, check.value, check.unit, sessionId, ts, ts]
+        );
+        newRecords.push({
+          id: result.lastInsertRowId,
+          user_id: userId,
+          exercise_id: exerciseId,
+          exercise_name: exerciseName,
+          record_type: check.type,
+          value: check.value,
+          unit: check.unit,
+          workout_session_id: sessionId,
+          achieved_at: ts,
+          created_at: ts,
+        });
+      }
+    }
+
+    return newRecords;
+  }
+
+  async getRecentPRs(limit = 10): Promise<import('../models').PersonalRecord[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    return db.getAllAsync<import('../models').PersonalRecord>(
+      'SELECT * FROM personal_records WHERE user_id = ? ORDER BY achieved_at DESC LIMIT ?',
+      [userId, limit]
+    );
+  }
+
+  async deleteRecord(id: number): Promise<void> {
+    const db = await getDatabase();
+    const userId = uid();
+    await db.runAsync('DELETE FROM personal_records WHERE id = ? AND user_id = ?', [id, userId]);
+  }
+}
+
+// ─── Achievement Repository ──────────────────────────────────────────────────
+
+export class AchievementRepository {
+  async getAll(): Promise<import('../models').Achievement[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    return db.getAllAsync<import('../models').Achievement>(
+      'SELECT * FROM achievements WHERE user_id = ? ORDER BY achieved_at DESC',
+      [userId]
+    );
+  }
+
+  async hasAchievement(badgeId: string): Promise<boolean> {
+    const db = await getDatabase();
+    const userId = uid();
+    const row = await db.getFirstAsync<{ cnt: number }>(
+      'SELECT COUNT(*) as cnt FROM achievements WHERE user_id = ? AND badge_id = ?',
+      [userId, badgeId]
+    );
+    return (row?.cnt ?? 0) > 0;
+  }
+
+  async award(badge: Omit<import('../models').Achievement, 'id' | 'created_at'>): Promise<void> {
+    const already = await this.hasAchievement(badge.badge_id);
+    if (already) return;
+    const db = await getDatabase();
+    const ts = now();
+    await db.runAsync(
+      `INSERT INTO achievements (user_id, badge_id, badge_name, badge_icon, badge_description, category, achieved_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [badge.user_id, badge.badge_id, badge.badge_name, badge.badge_icon, badge.badge_description, badge.category, badge.achieved_at, ts]
+    );
+  }
+
+  async deleteAchievement(id: number): Promise<void> {
+    const db = await getDatabase();
+    const userId = uid();
+    await db.runAsync('DELETE FROM achievements WHERE id = ? AND user_id = ?', [id, userId]);
+  }
+}
+
+// ─── Progress Photo Repository ───────────────────────────────────────────────
+
+export class ProgressPhotoRepository {
+  async getAll(): Promise<import('../models').ProgressPhoto[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    return db.getAllAsync<import('../models').ProgressPhoto>(
+      'SELECT * FROM progress_photos WHERE user_id = ? ORDER BY date DESC, created_at DESC',
+      [userId]
+    );
+  }
+
+  async getByDateRange(startDate: string, endDate: string): Promise<import('../models').ProgressPhoto[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    return db.getAllAsync<import('../models').ProgressPhoto>(
+      'SELECT * FROM progress_photos WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date DESC',
+      [userId, startDate, endDate]
+    );
+  }
+
+  async add(photo: Omit<import('../models').ProgressPhoto, 'id' | 'created_at'>): Promise<number> {
+    const db = await getDatabase();
+    const userId = uid();
+    const ts = now();
+    const result = await db.runAsync(
+      `INSERT INTO progress_photos (user_id, date, photo_uri, photo_type, notes, weight_kg, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, photo.date, photo.photo_uri, photo.photo_type, photo.notes, photo.weight_kg, ts]
+    );
+    return result.lastInsertRowId;
+  }
+
+  async delete(id: number): Promise<void> {
+    const db = await getDatabase();
+    const userId = uid();
+    await db.runAsync('DELETE FROM progress_photos WHERE id = ? AND user_id = ?', [id, userId]);
+  }
+
+  async getCount(): Promise<number> {
+    const db = await getDatabase();
+    const userId = uid();
+    const row = await db.getFirstAsync<{ cnt: number }>(
+      'SELECT COUNT(*) as cnt FROM progress_photos WHERE user_id = ?',
+      [userId]
+    );
+    return row?.cnt ?? 0;
+  }
+}
+
 // ─── User Profile Repository ─────────────────────────────────────────────────
 
 export class UserProfileRepository {
@@ -1336,3 +1605,6 @@ export const settingsRepo = new SettingsRepository();
 export const customWorkoutRepo = new CustomWorkoutRepository();
 export const securityRepo = new SecurityRepository();
 export const userProfileRepo = new UserProfileRepository();
+export const personalRecordRepo = new PersonalRecordRepository();
+export const achievementRepo = new AchievementRepository();
+export const progressPhotoRepo = new ProgressPhotoRepository();

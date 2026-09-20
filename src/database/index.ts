@@ -240,6 +240,49 @@ async function runMigrations() {
     `CREATE INDEX IF NOT EXISTS idx_custom_workouts_user ON custom_workouts(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
     `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_personal_records_user_exercise ON personal_records(user_id, exercise_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_personal_records_user ON personal_records(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_achievements_badge ON achievements(user_id, badge_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_progress_photos_user ON progress_photos(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_progress_photos_date ON progress_photos(user_id, date)`,
+    `CREATE TABLE IF NOT EXISTS personal_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      exercise_id TEXT NOT NULL,
+      exercise_name TEXT NOT NULL,
+      record_type TEXT NOT NULL,
+      value REAL NOT NULL,
+      unit TEXT NOT NULL,
+      workout_session_id INTEGER,
+      achieved_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE,
+      FOREIGN KEY (workout_session_id) REFERENCES workout_sessions(id) ON DELETE SET NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS achievements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      badge_id TEXT NOT NULL,
+      badge_name TEXT NOT NULL,
+      badge_icon TEXT NOT NULL,
+      badge_description TEXT NOT NULL,
+      category TEXT NOT NULL,
+      achieved_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS progress_photos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      photo_uri TEXT NOT NULL,
+      photo_type TEXT NOT NULL DEFAULT 'front',
+      notes TEXT DEFAULT '',
+      weight_kg REAL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
+    )`,
     `CREATE TABLE IF NOT EXISTS user_profile (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL DEFAULT 1,
@@ -454,6 +497,9 @@ export async function clearAllData(): Promise<void> {
     await database.runAsync('DELETE FROM daily_logs WHERE user_id = ?', [userId]);
     await database.runAsync('DELETE FROM hydration_entries WHERE user_id = ?', [userId]);
     await database.runAsync('DELETE FROM custom_foods WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM personal_records WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM achievements WHERE user_id = ?', [userId]);
+    await database.runAsync('DELETE FROM progress_photos WHERE user_id = ?', [userId]);
     await database.runAsync('DELETE FROM user_profile WHERE user_id = ?', [userId]);
     await database.runAsync('DELETE FROM app_security WHERE user_id = ?', [userId]);
     await database.runAsync('DELETE FROM app_settings WHERE user_id = ?', [userId]);

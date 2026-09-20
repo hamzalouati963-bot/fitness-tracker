@@ -14,6 +14,7 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import LockScreen from './screens/LockScreen';
+import { ThemeProvider } from './context/ThemeContext';
 import { getDatabase } from './database';
 import { accountRepo, userProfileRepo, securityRepo, type SecurityInfo } from './database/repositories';
 import { sessionManager } from './utils/session';
@@ -153,8 +154,9 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Tab.Navigator
+    <ThemeProvider>
+      <NavigationContainer>
+        <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ color, size }) => {
             let icon: React.ReactNode;
@@ -198,6 +200,7 @@ export default function App() {
         </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
+    </ThemeProvider>
   );
 }
 
