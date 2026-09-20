@@ -71,6 +71,7 @@ async function runMigrations() {
       meal_type TEXT NOT NULL,
       name TEXT NOT NULL,
       notes TEXT DEFAULT '',
+      photo_uri TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,

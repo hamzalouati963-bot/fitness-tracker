@@ -37,6 +37,8 @@ export type MoreStackParamList = {
   Achievements: undefined;
   ProgressPhotos: undefined;
   StrengthBalance: undefined;
+  BarcodeScanner: undefined;
+  Reminders: undefined;
 };
 
 // ─── Screen Props Helpers ──────────────────────────────────────────────────

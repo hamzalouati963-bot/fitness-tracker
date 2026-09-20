@@ -26,6 +26,8 @@ import PersonalRecordsScreen from './screens/PersonalRecordsScreen';
 import AchievementsScreen from './screens/AchievementsScreen';
 import ProgressPhotosScreen from './screens/ProgressPhotosScreen';
 import StrengthBalanceScreen from './screens/StrengthBalanceScreen';
+import BarcodeScannerScreen from './screens/BarcodeScannerScreen';
+import RemindersScreen from './screens/RemindersScreen';
 
 const Stack = createStackNavigator<MoreStackParamList>();
 
@@ -57,6 +59,8 @@ const menuItems: MoreMenuItem[] = [
   { id: 'achievements', label: 'Achievements', icon: 'military-tech', screen: 'Achievements', color: '#8B5CF6' },
   { id: 'progress_photos', label: 'Progress Photos', icon: 'photo-camera', screen: 'ProgressPhotos', color: '#059669' },
   { id: 'strength_balance', label: 'Strength Balance', icon: 'balance', screen: 'StrengthBalance', color: '#DC2626' },
+  { id: 'barcode_scanner', label: 'Barcode Scanner', icon: 'qr-code-scanner', screen: 'BarcodeScanner', color: '#0891B2' },
+  { id: 'reminders', label: 'Reminders', icon: 'alarm', screen: 'Reminders', color: '#F59E0B' },
 ];
 
 type MoreStackProps = {
@@ -111,6 +115,8 @@ export default function MoreStack({ onLogout }: MoreStackProps) {
       <Stack.Screen name="Achievements" component={AchievementsScreen} />
       <Stack.Screen name="ProgressPhotos" component={ProgressPhotosScreen} />
       <Stack.Screen name="StrengthBalance" component={StrengthBalanceScreen} />
+      <Stack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
+      <Stack.Screen name="Reminders" component={RemindersScreen} />
     </Stack.Navigator>
   );
 }
@@ -165,7 +171,7 @@ function MoreHomeScreen({ navigation }: MoreScreenProps<'MoreHome'>) {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>ANALYTICS & CONFIG</Text>
         <View style={styles.menuGrid}>
-          {menuItems.filter(item => ['calculators', 'foods', 'custom_foods', 'suggestions', 'weekly', 'personal_records', 'achievements', 'settings'].includes(item.id)).map((item) => (
+          {menuItems.filter(item => ['calculators', 'foods', 'custom_foods', 'suggestions', 'weekly', 'personal_records', 'achievements', 'barcode_scanner', 'reminders', 'settings'].includes(item.id)).map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuCard}

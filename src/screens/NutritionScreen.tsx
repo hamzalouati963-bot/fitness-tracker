@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { nutritionRepo, settingsRepo } from '../database/repositories';
 import { todayISO, foods } from '../services';
@@ -100,6 +101,45 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
       case 'snack': return '🍿';
       default: return '🍽️';
     }
+  };
+
+  const handleAddMealPhoto = (mealId: number) => {
+    Alert.alert('Add Photo', 'Choose a photo source', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Required', 'Camera permission is needed to take photos.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 0.5,
+            allowsEditing: true,
+          });
+          if (!result.canceled && result.assets[0]) {
+            await nutritionRepo.updateMealPhoto(mealId, result.assets[0].uri);
+            loadNutritionData();
+          }
+        },
+      },
+      {
+        text: 'Choose from Library',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.5,
+            allowsEditing: true,
+          });
+          if (!result.canceled && result.assets[0]) {
+            await nutritionRepo.updateMealPhoto(mealId, result.assets[0].uri);
+            loadNutritionData();
+          }
+        },
+      },
+    ]);
   };
 
   const handleDeleteMealItem = (itemId: number | undefined) => {
@@ -204,12 +244,18 @@ export default function NutritionScreen({ navigation }: TabScreenProps<'Nutritio
 
   const renderMeal = ({ item }: { item: MealWithTotals }) => (
     <View style={styles.mealCard}>
+      {item.photo_uri ? (
+        <Image source={{ uri: item.photo_uri }} style={styles.mealPhoto} resizeMode="cover" />
+      ) : null}
       <View style={styles.mealHeader}>
         <Text style={styles.mealIcon}>{getMealIcon(item.meal_type)}</Text>
         <Text style={styles.mealName}>{item.name}</Text>
         <View style={styles.mealCalories}>
           <Text style={styles.mealCaloriesText}>{Math.round(item.total_calories)} kcal</Text>
         </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add photo" onPress={() => handleAddMealPhoto(item.id!)} style={styles.mealPhotoButton}>
+          <Icon name="photo-camera" size={18} color="#2563EB" />
+        </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete meal" accessibilityHint="Removes this entire meal" onPress={() => handleDeleteMeal(item.id)} style={styles.mealDeleteButton}>
           <Icon name="delete" size={18} color="#EF4444" />
         </TouchableOpacity>
@@ -602,6 +648,16 @@ const styles = StyleSheet.create({
   mealDeleteButton: {
     marginLeft: 8,
     padding: 4,
+  },
+  mealPhotoButton: {
+    marginLeft: 4,
+    padding: 4,
+  },
+  mealPhoto: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+    marginBottom: 8,
   },
   foodDeleteButton: {
     marginLeft: 8,

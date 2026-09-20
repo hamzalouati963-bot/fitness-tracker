@@ -17,6 +17,7 @@ export default function WeeklyReviewScreen({ navigation }: MoreScreenProps<'Week
   const [lastWeekWeight, setLastWeekWeight] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [plannedDays, setPlannedDays] = useState(3);
+  const [macroTrends, setMacroTrends] = useState<Array<{date: string; calories: number; protein: number; carbs: number; fat: number}>>([]);
 
   const loadReview = useCallback(async () => {
     setLoading(true);
@@ -51,6 +52,13 @@ export default function WeeklyReviewScreen({ navigation }: MoreScreenProps<'Week
 
       setNutritionDaysLogged(nutritionDays);
       setHydrationDaysReached(hydrationDays);
+
+      const trends: Array<{date: string; calories: number; protein: number; carbs: number; fat: number}> = [];
+      for (const day of dayList) {
+        const totals = await nutritionRepo.getDailyNutrition(day);
+        trends.push({ date: day, calories: Math.round(totals.calories), protein: Math.round(totals.protein), carbs: Math.round(totals.carbs), fat: Math.round(totals.fat) });
+      }
+      setMacroTrends(trends);
 
       const latest = await measurementRepo.getLatestMeasurement();
       const lastWeekStart = new Date(weekStart + 'T00:00:00');
@@ -201,6 +209,47 @@ export default function WeeklyReviewScreen({ navigation }: MoreScreenProps<'Week
           </Text>
         </View>
       </View>
+
+      {/* Macro Trends */}
+      {macroTrends.length > 0 && (
+        <View style={styles.macroSection}>
+          <Text style={styles.sectionTitle}>DAILY MACRO TRENDS</Text>
+          <View style={styles.macroCard}>
+            <View style={styles.macroLegend}>
+              <View style={styles.macroLegendItem}><View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} /><Text style={styles.legendText}>Calories</Text></View>
+              <View style={styles.macroLegendItem}><View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} /><Text style={styles.legendText}>Protein</Text></View>
+              <View style={styles.macroLegendItem}><View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} /><Text style={styles.legendText}>Carbs</Text></View>
+              <View style={styles.macroLegendItem}><View style={[styles.legendDot, { backgroundColor: '#10B981' }]} /><Text style={styles.legendText}>Fat</Text></View>
+            </View>
+            {macroTrends.map((day, i) => {
+              const maxVal = Math.max(day.calories, 1);
+              return (
+                <View key={i} style={styles.macroDay}>
+                  <Text style={styles.macroDayLabel}>{new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })}</Text>
+                  <View style={styles.macroBars}>
+                    <View style={styles.macroBarRow}>
+                      <View style={[styles.macroBar, { width: `${Math.min(100, (day.calories / maxVal) * 100)}%`, backgroundColor: '#EF4444' }]} />
+                      <Text style={styles.macroBarValue}>{day.calories}</Text>
+                    </View>
+                    <View style={styles.macroBarRow}>
+                      <View style={[styles.macroBar, { width: `${Math.min(100, (day.protein / Math.max(maxVal * 0.3, 1)) * 100)}%`, backgroundColor: '#3B82F6' }]} />
+                      <Text style={styles.macroBarValue}>{day.protein}g</Text>
+                    </View>
+                    <View style={styles.macroBarRow}>
+                      <View style={[styles.macroBar, { width: `${Math.min(100, (day.carbs / Math.max(maxVal * 0.4, 1)) * 100)}%`, backgroundColor: '#F59E0B' }]} />
+                      <Text style={styles.macroBarValue}>{day.carbs}g</Text>
+                    </View>
+                    <View style={styles.macroBarRow}>
+                      <View style={[styles.macroBar, { width: `${Math.min(100, (day.fat / Math.max(maxVal * 0.15, 1)) * 100)}%`, backgroundColor: '#10B981' }]} />
+                      <Text style={styles.macroBarValue}>{day.fat}g</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       <View style={styles.spacer} />
       </>
@@ -429,6 +478,70 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 20,
+  },
+  macroSection: {
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  macroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  macroLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 12,
+  },
+  macroLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  macroDay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  macroDayLabel: {
+    width: 36,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  macroBars: {
+    flex: 1,
+    gap: 3,
+  },
+  macroBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  macroBar: {
+    height: 6,
+    borderRadius: 3,
+    minWidth: 2,
+  },
+  macroBarValue: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    width: 40,
   },
 });
 

@@ -86,6 +86,7 @@ export default function FoodSearchScreen({ navigation }: MoreScreenProps<'FoodSe
           meal_type: selectedMeal,
           name: label,
           notes: '',
+          photo_uri: null,
         });
       }
 

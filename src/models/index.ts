@@ -88,6 +88,7 @@ export interface Meal {
   meal_type: MealType;
   name: string;
   notes: string;
+  photo_uri: string | null;
   created_at: string;
 }
 
@@ -308,3 +309,23 @@ export interface WorkoutTemplateExercise {
   superset_group: number | null;
   notes: string;
 }
+
+export interface BarcodeFood {
+  barcode: string;
+  name: string;
+  brand: string;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+}
+
+export interface MacroTrendEntry {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export type SupportedLanguage = 'en' | 'fr' | 'es' | 'ar';

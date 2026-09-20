@@ -431,8 +431,8 @@ export class NutritionRepository {
     const userId = uid();
     const ts = now();
     const result = await db.runAsync(
-      `INSERT INTO meals (user_id, date, meal_type, name, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, meal.date, meal.meal_type, meal.name, meal.notes, ts]
+      `INSERT INTO meals (user_id, date, meal_type, name, notes, photo_uri, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, meal.date, meal.meal_type, meal.name, meal.notes, meal.photo_uri ?? null, ts]
     );
     return result.lastInsertRowId;
   }
@@ -441,6 +441,34 @@ export class NutritionRepository {
     const db = await getDatabase();
     const userId = uid();
     await db.runAsync('DELETE FROM meals WHERE id = ? AND user_id = ?', [id, userId]);
+  }
+
+  async updateMealPhoto(mealId: number, photoUri: string | null): Promise<void> {
+    const db = await getDatabase();
+    const userId = uid();
+    await db.runAsync(
+      'UPDATE meals SET photo_uri = ? WHERE id = ? AND user_id = ?',
+      [photoUri, mealId, userId]
+    );
+  }
+
+  async getWeeklyMacroTrends(days: number = 7): Promise<import('../models').MacroTrendEntry[]> {
+    const db = await getDatabase();
+    const userId = uid();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const rows = await db.getAllAsync<{ date: string; calories: number; protein: number; carbs: number; fat: number }>(
+      `SELECT m.date,
+        COALESCE(SUM(mi.calories), 0) as calories,
+        COALESCE(SUM(mi.protein_g), 0) as protein,
+        COALESCE(SUM(mi.carbs_g), 0) as carbs,
+        COALESCE(SUM(mi.fat_g), 0) as fat
+       FROM meals m JOIN meal_items mi ON m.id = mi.meal_id
+       WHERE m.user_id = ? AND m.date >= ?
+       GROUP BY m.date ORDER BY m.date ASC`,
+      [userId, formatDateLocal(startDate)]
+    );
+    return rows.map(r => ({ date: r.date, calories: r.calories, protein: r.protein, carbs: r.carbs, fat: r.fat }));
   }
 
   async getMealItems(mealId: number): Promise<MealItem[]> {

@@ -600,8 +600,8 @@ export class BackupService {
           ['id', 'exercise_id', 'set_number', 'weight_kg', 'reps', 'completed', 'rpe', 'created_at'],
           pick(parsed.workout_sets, ['id', 'exercise_id', 'set_number', 'weight_kg', 'reps', 'completed', 'rpe', 'created_at']));
         await insertRows('meals',
-          ['id', 'user_id', 'date', 'meal_type', 'name', 'notes', 'created_at'],
-          pick(parsed.meals, ['id', 'date', 'meal_type', 'name', 'notes', 'created_at']).map(r => { r.splice(1, 0, userId); return r; }));
+          ['id', 'user_id', 'date', 'meal_type', 'name', 'notes', 'photo_uri', 'created_at'],
+          pick(parsed.meals, ['id', 'date', 'meal_type', 'name', 'notes', 'created_at']).map(r => { r.splice(1, 0, userId); r.splice(6, 0, null); return r; }));
         await insertRows('meal_items',
           ['id', 'meal_id', 'food_id', 'food_name', 'quantity', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at'],
           pick(parsed.meal_items, ['id', 'meal_id', 'food_id', 'food_name', 'quantity', 'unit', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'created_at']));

@@ -16,6 +16,7 @@ interface ExerciseDraft {
   reps: number;
   weight_kg: number;
   rest_seconds: number;
+  superset_group: number | null;
   notes: string;
 }
 
@@ -60,6 +61,7 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
           reps: 10,
           weight_kg: 0,
           rest_seconds: exercise.default_rest_seconds || 90,
+          superset_group: null,
           notes: '',
         });
         setShowExerciseEditor(true);
@@ -85,6 +87,7 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
       reps: e.reps,
       weight_kg: e.weight_kg,
       rest_seconds: e.rest_seconds,
+      superset_group: (e as any).superset_group ?? null,
       notes: e.notes,
     })));
   };
@@ -157,7 +160,7 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
             weight_kg: e.weight_kg,
             rest_seconds: e.rest_seconds,
             notes: e.notes,
-          });
+          } as any);
         }
       } else {
         const newId = await customWorkoutRepo.create({ name: trimmedName, description: description.trim() });
@@ -173,7 +176,7 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
             weight_kg: e.weight_kg,
             rest_seconds: e.rest_seconds,
             notes: e.notes,
-          });
+          } as any);
         }
       }
       navigation.goBack();
@@ -347,6 +350,28 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
             multiline
           />
 
+          <View style={styles.supersetSection}>
+            <Text style={styles.stepperLabel}>Superset / Circuit Group</Text>
+            <Text style={styles.supersetHint}>Group exercises together (e.g. exercises 1 & 2 in group 1 = superset)</Text>
+            <View style={styles.supersetButtons}>
+              <TouchableOpacity
+                style={[styles.supersetBtn, editingExercise.superset_group === null && styles.supersetBtnActive]}
+                onPress={() => setEditingExercise({ ...editingExercise, superset_group: null })}
+              >
+                <Text style={[styles.supersetBtnText, editingExercise.superset_group === null && styles.supersetBtnTextActive]}>None</Text>
+              </TouchableOpacity>
+              {[1, 2, 3, 4].map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.supersetBtn, editingExercise.superset_group === g && styles.supersetBtnActive]}
+                  onPress={() => setEditingExercise({ ...editingExercise, superset_group: g })}
+                >
+                  <Text style={[styles.supersetBtnText, editingExercise.superset_group === g && styles.supersetBtnTextActive]}>G{g}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirmExercise}>
             <Text style={styles.confirmBtnText}>
               {editingExercise.order_index < exercises.length ? 'Update Exercise' : 'Add to Workout'}
@@ -410,6 +435,11 @@ export default function CreateCustomWorkoutScreen({ navigation, route }: MoreScr
       ) : (
         exercises.map((ex, index) => (
           <View key={ex.tempId} style={styles.exerciseCard}>
+            {ex.superset_group !== null && (
+              <View style={styles.supersetBadge}>
+                <Text style={styles.supersetBadgeText}>G{ex.superset_group}</Text>
+              </View>
+            )}
             <View style={styles.exerciseLeft}>
               <Text style={styles.exerciseIndex}>{index + 1}</Text>
               <View style={styles.exerciseInfo}>
@@ -701,5 +731,51 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 20,
+  },
+  supersetSection: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  supersetHint: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  supersetButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  supersetBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  supersetBtnActive: {
+    backgroundColor: '#2563EB',
+  },
+  supersetBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  supersetBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  supersetBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#7C3AED',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 1,
+  },
+  supersetBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
