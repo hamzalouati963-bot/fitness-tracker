@@ -1259,11 +1259,11 @@ export class CustomWorkoutRepository {
     const db = await getDatabase();
     const result = await db.runAsync(
       `INSERT INTO custom_workout_exercises
-       (custom_workout_id, exercise_id, exercise_name, order_index, sets, reps, weight_kg, rest_seconds, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (custom_workout_id, exercise_id, exercise_name, order_index, sets, reps, weight_kg, rest_seconds, notes, superset_group)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [exercise.custom_workout_id, exercise.exercise_id, exercise.exercise_name,
        exercise.order_index, exercise.sets, exercise.reps, exercise.weight_kg,
-       exercise.rest_seconds, exercise.notes]
+       exercise.rest_seconds, exercise.notes, (exercise as any).superset_group ?? null]
     );
     return result.lastInsertRowId;
   }
@@ -1280,6 +1280,7 @@ export class CustomWorkoutRepository {
     if (updates.weight_kg !== undefined) { fields.push('weight_kg'); values.push(updates.weight_kg); }
     if (updates.rest_seconds !== undefined) { fields.push('rest_seconds'); values.push(updates.rest_seconds); }
     if (updates.notes !== undefined) { fields.push('notes'); values.push(updates.notes); }
+    if ((updates as any).superset_group !== undefined) { fields.push('superset_group'); values.push((updates as any).superset_group); }
     if (fields.length > 0) {
       values.push(id);
       await db.runAsync(

@@ -236,17 +236,9 @@ async function runMigrations() {
       weight_kg REAL DEFAULT 0,
       rest_seconds INTEGER DEFAULT 90,
       notes TEXT DEFAULT '',
+      superset_group INTEGER DEFAULT NULL,
       FOREIGN KEY (custom_workout_id) REFERENCES custom_workouts(id) ON DELETE CASCADE
     )`,
-    `CREATE INDEX IF NOT EXISTS idx_custom_workouts_user ON custom_workouts(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_personal_records_user_exercise ON personal_records(user_id, exercise_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_personal_records_user ON personal_records(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_achievements_badge ON achievements(user_id, badge_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_progress_photos_user ON progress_photos(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_progress_photos_date ON progress_photos(user_id, date)`,
     `CREATE TABLE IF NOT EXISTS personal_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -302,6 +294,15 @@ async function runMigrations() {
       updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
     )`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_workouts_user ON custom_workouts(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_workout_exercises_workout ON custom_workout_exercises(custom_workout_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_personal_records_user_exercise ON personal_records(user_id, exercise_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_personal_records_user ON personal_records(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_achievements_badge ON achievements(user_id, badge_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_progress_photos_user ON progress_photos(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_progress_photos_date ON progress_photos(user_id, date)`,
   ];
 
   await database.withTransactionAsync(async () => {
@@ -309,6 +310,10 @@ async function runMigrations() {
       await database.runAsync(sql, []);
     }
   });
+
+  // Column migrations for existing DBs that were created before new columns/tables existed.
+  // CREATE TABLE IF NOT EXISTS does NOT add columns to existing tables, so we patch them here.
+  await ensureMissingColumns(database);
 
   // Migration for existing installs: add user_id columns and create legacy account
   await migrateToMultiUser(database);
@@ -342,6 +347,54 @@ async function runMigrations() {
       ]
     );
   }
+}
+
+async function ensureMissingColumns(database: SQLite.SQLiteDatabase): Promise<void> {
+  const ensureColumn = async (table: string, column: string, definition: string) => {
+    const cols = await database.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`, []);
+    if (!cols.some(c => c.name === column)) {
+      await database.runAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`, []);
+    }
+  };
+
+  // Meals created before photo_uri support
+  await ensureColumn('meals', 'photo_uri', 'TEXT');
+  // Custom workouts created before superset_group support
+  await ensureColumn('custom_workout_exercises', 'superset_group', 'INTEGER DEFAULT NULL');
+
+  // app_settings columns added incrementally after initial release
+  const appSettingsCols: Array<[string, string]> = [
+    ['nutrition_calories', 'INTEGER DEFAULT 2200'],
+    ['nutrition_protein', 'INTEGER DEFAULT 150'],
+    ['nutrition_carbs', 'INTEGER DEFAULT 250'],
+    ['nutrition_fat', 'INTEGER DEFAULT 70'],
+    ['nutrition_hydration', 'REAL DEFAULT 2.5'],
+    ['notification_workout_enabled', 'INTEGER DEFAULT 1'],
+    ['notification_workout_time', "TEXT DEFAULT '08:00'"],
+    ['notification_hydration_enabled', 'INTEGER DEFAULT 1'],
+    ['notification_hydration_interval', 'INTEGER DEFAULT 60'],
+    ['notification_meal_enabled', 'INTEGER DEFAULT 1'],
+    ['notification_meal_time', "TEXT DEFAULT '12:00'"],
+    ['notification_measurement_enabled', 'INTEGER DEFAULT 0'],
+    ['notification_measurement_interval', 'INTEGER DEFAULT 7'],
+    ['notification_weekly_enabled', 'INTEGER DEFAULT 1'],
+    ['notification_weekly_day', "TEXT DEFAULT 'sunday'"],
+    ['notification_weekly_time', "TEXT DEFAULT '20:00'"],
+    ['theme', "TEXT DEFAULT 'system'"],
+    ['unit_system', "TEXT DEFAULT 'metric'"],
+    ['last_weekly_review_date', 'TEXT'],
+    ['is_premium', 'INTEGER DEFAULT 0'],
+  ];
+  for (const [col, def] of appSettingsCols) {
+    await ensureColumn('app_settings', col, def);
+  }
+
+  // body_measurements columns that may be missing on very old installs
+  await ensureColumn('body_measurements', 'water_percent', 'REAL');
+  await ensureColumn('body_measurements', 'visceral_fat', 'REAL');
+  await ensureColumn('body_measurements', 'phase_angle', 'REAL');
+  await ensureColumn('body_measurements', 'bmi', 'REAL');
+  await ensureColumn('body_measurements', 'muscle_mass_kg', 'REAL');
 }
 
 /**
